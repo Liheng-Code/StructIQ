@@ -73,6 +73,9 @@ def _inside(px: float, py: float, pts: list[tuple[float, float]]) -> bool:
     return inside
 
 
+point_in_polygon = _inside  # public alias used by stairs/openings
+
+
 def _plan_for(grid_result: grids.GridResult, cx: float, cy: float):
     return next(
         (

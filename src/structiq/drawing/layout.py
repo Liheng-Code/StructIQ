@@ -1,6 +1,7 @@
-"""Full structural layout from an architect DXF: grid, columns, walls, slabs.
+"""Full structural layout from an architect DXF.
 
-Writes one DXF with all structural layers plus a DRAFT text report.
+Grid, columns, walls, slabs, openings (MEP shafts) and stairs in one DXF on
+structural layers, plus a DRAFT text report.
 
 Usage::
 
@@ -16,7 +17,7 @@ from pathlib import Path
 
 import ezdxf
 
-from structiq.drawing import columns, grids, slabs, walls
+from structiq.drawing import columns, grids, openings, slabs, stairs, walls
 
 
 @dataclass
@@ -25,15 +26,22 @@ class Layout:
     columns: columns.ColumnResult
     walls: walls.WallResult
     slabs: slabs.SlabResult
+    openings: openings.OpeningResult
+    stairs: stairs.StairResult
 
 
 def extract_layout(doc) -> Layout:
     g = grids.extract_grids(doc)
+    cols = columns.extract_columns(doc, g)
+    wls = walls.extract_walls(doc, g)
+    slb = slabs.extract_slabs(doc, g)
     return Layout(
         g,
-        columns.extract_columns(doc, g),
-        walls.extract_walls(doc, g),
-        slabs.extract_slabs(doc, g),
+        cols,
+        wls,
+        slb,
+        openings.extract_openings(doc, g, wls, cols, slb),
+        stairs.extract_stairs(doc, g, slb),
     )
 
 
@@ -44,6 +52,8 @@ def format_layout_report(layout: Layout, source: str | None = None) -> str:
             columns.format_columns_report(layout.columns),
             walls.format_walls_report(layout.walls),
             slabs.format_slabs_report(layout.slabs, layout.grid),
+            openings.format_openings_report(layout.openings),
+            stairs.format_stairs_report(layout.stairs),
         ]
     )
 
@@ -53,6 +63,8 @@ def write_layout(layout: Layout, path: str | Path) -> Path:
     columns.add_columns(doc, layout.columns)
     walls.add_walls(doc, layout.walls)
     slabs.add_slabs(doc, layout.slabs)
+    openings.add_openings(doc, layout.openings)
+    stairs.add_stairs(doc, layout.stairs)
     out = Path(path)
     doc.saveas(out)
     return out
