@@ -1,4 +1,8 @@
 # Copy to config/paths.yaml (git-ignored) and adjust for this machine.
+# The drive letter can differ between computers: change it here only.
+
+# Layer 1: the Core Brain (master prompt, principles, safety rules, workflows)
+core_brain: 'G:\My Drive\04-Systems Development\06-StructIQ\01-Core Brain'
 
 docs: 'G:\My Drive\04-Systems Development\06-StructIQ\docs'
 
