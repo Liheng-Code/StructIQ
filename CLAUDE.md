@@ -29,6 +29,14 @@ user; do not fall back to rules from memory.
 
 Do not duplicate brain rules in this file. Change them in the Core Brain.
 
+## Drawing Intelligence
+
+Architect drawings are read with the `drawing-intelligence` skill
+(`.claude/skills/drawing-intelligence/SKILL.md`). One command does everything:
+`.venv\Scripts\python.exe -m structiq.drawing.pipeline "<drawing.dwg|.dxf>"`.
+Only RC walls are drawn; brick walls are counted in the report. Each run writes the
+next `Rev NN` and never overwrites an earlier one.
+
 ## Where things live
 
 - Code: this repository (`src/structiq`, `tests`, `.claude`, `apps`).

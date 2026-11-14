@@ -9,12 +9,16 @@ on a wall layer, so the *layer* is meaningful but the block name is not:
 * **Direct walls**: closed 4-vertex rectangular polylines on a wall layer.
   Other polylines on wall layers are counted, not extracted.
 
-Wall kind comes from the layer name: ``brick`` (infill), ``structural``
-(layer name contains STRUCT) or ``other``. Walls are axis-aligned boxes; a
-rotated block that is not a multiple of 90 degrees is flagged because its
-bounding box overstates the wall.
+Wall kind comes from the layer name: ``structural`` (RC) when the layer matches
+``rc_layer_pattern``, ``brick`` (infill) when it contains BRICK, else ``other``.
+Only RC walls are drawn into the structural layout; brick and other walls are
+kept in the result (they still bound shafts) and counted in the report but not
+drawn. The architect's drawing does not always mark RC walls: if no layer matches
+the pattern, no RC walls are reported, and the pattern can be given explicitly
+(``--rc-layers``). Walls are axis-aligned boxes; a rotated block that is not a
+multiple of 90 degrees is flagged because its bounding box overstates the wall.
 
-Objects on a ``STRUCT`` layer that are too small to be walls are reported so
+Objects on an RC-matching layer that are too small to be walls are reported so
 the engineer can check them; nothing is silently dropped.
 """
 
@@ -28,6 +32,7 @@ from ezdxf import bbox
 from structiq.drawing import grids
 
 WALL_LAYER_PATTERN = r"WALL"
+DEFAULT_RC_PATTERN = r"STRUCT|\bRC\b|SHEAR|CONCRETE WALL"  # layers that hold RC walls
 MIN_THICK = 50.0  # mm
 MAX_THICK = 600.0  # mm
 MIN_ASPECT = 2.0
@@ -46,7 +51,7 @@ class Wall:
     thickness: float
     length: float
     layer: str
-    kind: str  # "brick" | "structural" | "other"
+    kind: str  # "structural" (RC) | "brick" | "other"
     grid_line: str | None  # label of the gridline it lies on, if any
     skewed: bool = False
 
@@ -57,18 +62,21 @@ class Wall:
 
 @dataclass
 class WallResult:
-    walls: list[Wall]
+    walls: list[Wall]  # every wall found; only kind == "structural" is drawn
     non_rectangular: int = 0  # wall-layer polylines that are not simple rectangles
     not_wall_shaped: int = 0  # wall-layer blocks inside plans that are too thick/short (L, T...)
     rejected_structural: list[tuple[int | None, str, float, float]] = field(default_factory=list)
     outside_plans: int = 0
 
+    @property
+    def rc_walls(self) -> list[Wall]:
+        return [w for w in self.walls if w.kind == "structural"]
 
-def _kind(layer: str) -> str:
-    up = layer.upper()
-    if "STRUCT" in up:
+
+def _kind(layer: str, rc_re: re.Pattern) -> str:
+    if rc_re.search(layer):
         return "structural"
-    if "BRICK" in up:
+    if "BRICK" in layer.upper():
         return "brick"
     return "other"
 
@@ -85,14 +93,17 @@ def _plan_for(grid_result: grids.GridResult, cx: float, cy: float):
     )
 
 
-def extract_walls(doc, grid_result: grids.GridResult) -> WallResult:
+def extract_walls(
+    doc, grid_result: grids.GridResult, rc_layer_pattern: str | None = None
+) -> WallResult:
     layer_re = re.compile(WALL_LAYER_PATTERN, re.I)
+    rc_re = re.compile(rc_layer_pattern or DEFAULT_RC_PATTERN, re.I)
     msp = doc.modelspace()
     result = WallResult([])
     seen: set[tuple[int, int, int, int]] = set()
 
     for e in msp:
-        if not layer_re.search(e.dxf.layer):
+        if not layer_re.search(e.dxf.layer) and not rc_re.search(e.dxf.layer):
             continue
         t = e.dxftype()
         if t not in ("INSERT", "LWPOLYLINE"):
@@ -108,7 +119,7 @@ def extract_walls(doc, grid_result: grids.GridResult) -> WallResult:
         plan = _plan_for(grid_result, ext.center.x, ext.center.y)
         wall_like = MIN_THICK <= thick <= MAX_THICK and length >= MIN_ASPECT * thick
         if not wall_like:
-            if "STRUCT" in e.dxf.layer.upper():
+            if rc_re.search(e.dxf.layer):
                 result.rejected_structural.append(
                     (plan.index if plan else None, e.dxf.layer, round(w), round(h))
                 )
@@ -140,7 +151,7 @@ def extract_walls(doc, grid_result: grids.GridResult) -> WallResult:
                 thick,
                 length,
                 e.dxf.layer,
-                _kind(e.dxf.layer),
+                _kind(e.dxf.layer, rc_re),
                 (near.label or "?") if on_grid else None,
                 skewed=min(rot, 90 - rot) > 1.0,
             )
@@ -150,34 +161,47 @@ def extract_walls(doc, grid_result: grids.GridResult) -> WallResult:
 
 
 def format_walls_report(result: WallResult) -> str:
-    out = ["WALLS (detected from wall-layer blocks and rectangles; confirm against the drawing)"]
+    out = [
+        "WALLS (RC walls are drawn; brick and other walls are only counted. "
+        "Confirm against the drawing)"
+    ]
     plans = sorted({w.plan for w in result.walls})
     for p in plans:
         ws = [w for w in result.walls if w.plan == p]
-        total = sum(w.length for w in ws) / 1000
-        out.append(f"\nPlan {p}: {len(ws)} wall segments, total length {total:.1f} m")
-        by_kind: dict[tuple[str, int], list[Wall]] = {}
-        for w in ws:
-            by_kind.setdefault((w.kind, round(w.thickness)), []).append(w)
-        for (kind, thick), group in sorted(by_kind.items()):
-            length = sum(w.length for w in group) / 1000
-            out.append(f"  {kind:<10} {thick:>4} mm thick: {len(group):>3} segments, {length:.1f} m")
-        on: dict[tuple[str, str], list[Wall]] = {}
-        for w in ws:
+        rc = [w for w in ws if w.kind == "structural"]
+        rest = [w for w in ws if w.kind != "structural"]
+        out.append(
+            f"\nPlan {p}: {len(rc)} RC wall segment(s) drawn ({sum(w.length for w in rc) / 1000:.1f} m); "
+            f"{len(rest)} brick/other segment(s) not drawn ({sum(w.length for w in rest) / 1000:.1f} m)"
+        )
+        by_thick: dict[int, list[Wall]] = {}
+        for w in rc:
+            by_thick.setdefault(round(w.thickness), []).append(w)
+        for thick, group in sorted(by_thick.items()):
+            out.append(
+                f"  RC {thick:>4} mm thick: {len(group):>3} segments, "
+                f"{sum(w.length for w in group) / 1000:.1f} m"
+            )
+        on: dict[str, int] = {}
+        for w in rc:
             if w.grid_line is not None:
-                on.setdefault((w.orientation, w.grid_line), []).append(w)
+                on[w.grid_line] = on.get(w.grid_line, 0) + 1
         if on:
-            parts = [f"{name} x{len(g)}" for (_, name), g in sorted(on.items())]
-            out.append(f"  On a gridline: {', '.join(parts)}")
-        out.append(f"  Off gridlines: {sum(1 for w in ws if w.grid_line is None)} segments")
-        skew = [w for w in ws if w.skewed]
+            out.append("  RC on a gridline: " + ", ".join(f"{k} x{n}" for k, n in sorted(on.items())))
+        skew = [w for w in rc if w.skewed]
         if skew:
-            out.append(f"  ! {len(skew)} segment(s) rotated off 90 degrees: sizes are approximate")
-        if not any(w.kind == "structural" for w in ws):
-            out.append("  No structural (RC) walls identified on a structural-wall layer.")
+            out.append(f"  ! {len(skew)} RC segment(s) rotated off 90 degrees: sizes are approximate")
+        if not rc:
+            out.append("  No RC walls identified in this plan.")
+    if not result.rc_walls:
+        out.append(
+            "\n! No RC walls identified anywhere: no wall layer matches the RC layer pattern. "
+            "Name the layers that hold RC walls with --rc-layers, or have them put on a "
+            "dedicated layer. Walls from the brick layers are not drawn."
+        )
     if result.rejected_structural:
         out.append(
-            f"\n! {len(result.rejected_structural)} object(s) on a STRUCT wall layer are too small "
+            f"\n! {len(result.rejected_structural)} object(s) on an RC-matching layer are too small "
             "to be walls (not extracted); check them:"
         )
         for plan, layer, w, h in result.rejected_structural[:12]:
@@ -199,16 +223,10 @@ def format_walls_report(result: WallResult) -> str:
 
 
 def add_walls(doc, result: WallResult) -> None:
-    """Add wall rectangles on S-WALL (structural), S-WALL-INFILL (brick) or S-WALL-CHECK."""
-    layers = {
-        "structural": ("S-WALL", 5),
-        "brick": ("S-WALL-INFILL", 8),
-        "other": ("S-WALL-CHECK", 6),
-    }
-    for name, color in layers.values():
-        if name not in doc.layers:
-            doc.layers.add(name, color=color)
+    """Draw RC walls only, as closed rectangles on layer S-WALL. Brick walls are not drawn."""
+    if "S-WALL" not in doc.layers:
+        doc.layers.add("S-WALL", color=5)
     msp = doc.modelspace()
-    for w in result.walls:
+    for w in result.rc_walls:
         pts = [(w.x0, w.y0), (w.x1, w.y0), (w.x1, w.y1), (w.x0, w.y1)]
-        msp.add_lwpolyline(pts, close=True, dxfattribs={"layer": layers[w.kind][0]})
+        msp.add_lwpolyline(pts, close=True, dxfattribs={"layer": "S-WALL"})

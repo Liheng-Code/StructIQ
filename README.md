@@ -13,6 +13,7 @@ layer diagram live on Google Drive at
 | `CLAUDE.md` | Engineering identity, principles and safety rules for Claude | 01 Core Brain |
 | `.claude/skills/`, `.claude/agents/` | One skill or subagent per module (calculation note, specification, BOQ, RFI...) | 04 Execution Engine |
 | `config/paths.example.yaml` | Pointers to the reference library and project folders on Drive | 02 Knowledge, 03 Project Intelligence |
+| `src/structiq/drawing/` | Drawing Intelligence: DWG/DXF in, structural layout + report out (`pipeline.py` is the entry point) | 04 Execution Engine |
 | `src/structiq/core/` | Units, data models, shared services | 04 shared services |
 | `src/structiq/calc/` | Calculation code | 05 Engineering Tools (python) |
 | `src/structiq/tools/` | Adapters for ETABS, SAFE, AutoCAD, Excel, document generation | 05 Engineering Tools |

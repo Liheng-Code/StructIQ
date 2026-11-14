@@ -128,6 +128,7 @@ def test_layout_writes_all_structural_layers(tmp_path):
     lay = layout.extract_layout(_doc())
     out = layout.write_layout(lay, tmp_path / "layout.dxf")
     names = {la.dxf.name for la in ezdxf.readfile(out).layers}
-    assert {"S-GRID", "S-WALL-INFILL", "S-SLAB-EDGE", "S-SLAB-CHECK"} <= names
+    assert {"S-GRID", "S-WALL", "S-SLAB-EDGE", "S-SLAB-CHECK"} <= names
+    assert "S-WALL-INFILL" not in names  # brick walls are never drawn
     text = layout.format_layout_report(lay, source="test.dwg")
     assert "DRAFT" in text and "WALLS" in text and "SLABS" in text

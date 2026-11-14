@@ -10,6 +10,7 @@ Usage::
 
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from dataclasses import dataclass
@@ -30,10 +31,10 @@ class Layout:
     stairs: stairs.StairResult
 
 
-def extract_layout(doc) -> Layout:
+def extract_layout(doc, rc_layer_pattern: str | None = None) -> Layout:
     g = grids.extract_grids(doc)
     cols = columns.extract_columns(doc, g)
-    wls = walls.extract_walls(doc, g)
+    wls = walls.extract_walls(doc, g, rc_layer_pattern)
     slb = slabs.extract_slabs(doc, g)
     return Layout(
         g,
@@ -45,8 +46,10 @@ def extract_layout(doc) -> Layout:
     )
 
 
-def format_layout_report(layout: Layout, source: str | None = None) -> str:
-    return "\n\n".join(
+def format_layout_report(
+    layout: Layout, source: str | None = None, brain_version: str | None = None
+) -> str:
+    text = "\n\n".join(
         [
             grids.format_report(layout.grid, source=source),
             columns.format_columns_report(layout.columns),
@@ -56,6 +59,10 @@ def format_layout_report(layout: Layout, source: str | None = None) -> str:
             stairs.format_stairs_report(layout.stairs),
         ]
     )
+    if brain_version:
+        first, rest = text.split("\n", 1)
+        text = f"{first}\nCore Brain version: {brain_version}\n{rest}"
+    return text
 
 
 def write_layout(layout: Layout, path: str | Path) -> Path:
@@ -72,14 +79,16 @@ def write_layout(layout: Layout, path: str | Path) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     logging.disable(logging.CRITICAL)  # ezdxf logs a line per unsupported object copy
-    args = sys.argv[1:] if argv is None else argv
-    if len(args) not in (1, 2, 3):
-        print(
-            "Usage: python -m structiq.drawing.layout <drawing.dxf> "
-            "[layout-output.dxf] [source name for the report]"
-        )
-        return 2
-    layout = extract_layout(ezdxf.readfile(args[0]))
+    parser = argparse.ArgumentParser(prog="python -m structiq.drawing.layout")
+    parser.add_argument("drawing", help="converted DXF to read")
+    parser.add_argument("output", nargs="?", help="layout DXF to write (a report is written beside it)")
+    parser.add_argument("source", nargs="?", help="source drawing name for the report")
+    parser.add_argument(
+        "--rc-layers", help="regex for layer names that hold RC walls (default: STRUCT|RC|SHEAR...)"
+    )
+    ns = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    args = [a for a in (ns.drawing, ns.output, ns.source) if a is not None]
+    layout = extract_layout(ezdxf.readfile(args[0]), ns.rc_layers)
     report = format_layout_report(layout, source=args[2] if len(args) == 3 else Path(args[0]).name)
     print(report)
     if len(args) >= 2:
