@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "matplotlib"]  # matplotlib only renders previews of templates and layouts
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/structiq"]

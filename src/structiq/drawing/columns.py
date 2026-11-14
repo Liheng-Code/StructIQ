@@ -29,7 +29,7 @@ from pathlib import Path
 import ezdxf
 from ezdxf import bbox
 
-from structiq.drawing import grids
+from structiq.drawing import grids, template
 
 COLUMN_LAYER_PATTERN = r"COL"
 MIN_DIM = 150.0  # mm
@@ -204,15 +204,14 @@ def write_layout_dxf(
 
 def add_columns(doc, col_result: ColumnResult) -> None:
     """Add the S-COLS / S-COLS-TXT layers and column shapes to ``doc``."""
-    doc.layers.add("S-COLS", color=3)
-    doc.layers.add("S-COLS-TXT", color=2)
+    template.define_styles(doc)  # no-op when the layers already exist
     msp = doc.modelspace()
     for c in col_result.columns:
         x0, x1 = c.x - c.width / 2, c.x + c.width / 2
         y0, y1 = c.y - c.height / 2, c.y + c.height / 2
         pts = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
         msp.add_lwpolyline(pts, close=True, dxfattribs={"layer": "S-COLS"})
-        hatch = msp.add_hatch(color=3, dxfattribs={"layer": "S-COLS"})
+        hatch = msp.add_hatch(color=256, dxfattribs={"layer": "S-COLS-HATCH"})
         hatch.paths.add_polyline_path(pts, is_closed=True)
         msp.add_text(
             c.grid_ref if c.on_grid else f"{c.grid_ref}?",

@@ -25,3 +25,6 @@ projects/
 Thumbs.db
 desktop.ini
 .vscode/
+
+# Project drawings and exports (client data: never commit)
+templates/*.pdf

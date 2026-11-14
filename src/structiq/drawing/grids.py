@@ -22,6 +22,8 @@ from pathlib import Path
 
 import ezdxf
 
+from structiq.drawing import template
+
 DEFAULT_LAYER_PATTERN = r"GRID"  # matches GRID, N- GRID, A-GRID LINE, GRID-144...
 DEFAULT_TAG_PATTERN = r"AXIS|GRID"  # attribute tags that carry a grid label
 ORTHO_TOL = 1.0  # a line is orthogonal if its off-axis extent is below this
@@ -231,9 +233,7 @@ def format_report(result: GridResult, unit: str = "mm", source: str | None = Non
 def build_grid_doc(result: GridResult, text_height: float = 350.0):
     """New DXF document holding only the structural grid (S-GRID, S-GRID-TXT)."""
     doc = ezdxf.new("R2018", setup=True)
-    doc.units = 4  # millimetres
-    doc.layers.add("S-GRID", color=1, linetype="CENTER")
-    doc.layers.add("S-GRID-TXT", color=2)
+    template.define_styles(doc)  # StructIQ layers, linetypes and text styles (units: mm)
     msp = doc.modelspace()
     for c in result.clusters:
         for ln in c.vertical + c.horizontal:
