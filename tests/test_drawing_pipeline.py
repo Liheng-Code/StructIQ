@@ -64,6 +64,29 @@ def test_no_rc_layer_means_no_walls_drawn_and_a_clear_flag(tmp_path):
     assert "No RC wall segments identified" in layout.format_layout_report(lay)
 
 
+def test_wall_report_explains_rejected_objects_on_rc_matching_layer():
+    doc = _doc()
+    doc.modelspace().add_lwpolyline(
+        _rect(1000, 1000, 1316, 1587), close=True, dxfattribs={"layer": "RC WALL"}
+    )
+
+    text = layout.format_layout_report(layout.extract_layout(doc))
+
+    assert "objects on an RC-matching layer were rejected by the wall-shape filter" in text
+    assert "no wall layer matches the RC layer pattern" not in text
+    assert "'RC WALL' 316 x 587 mm" in text
+
+
+def test_report_adds_review_checklist_for_flagged_findings():
+    text = layout.format_layout_report(layout.extract_layout(_doc()))
+    checklist = text.split("\nENGINEER REVIEW CHECKLIST\n", 1)[1]
+
+    assert "[ ] Confirm detected grids, columns, walls, slabs" in checklist
+    assert "[ ] Resolve or document each flagged finding" in checklist
+    assert "[ ] No RC wall segments identified" in checklist
+    assert text.splitlines()[0].startswith("DRAFT")
+
+
 def test_pipeline_writes_next_revision_each_run_and_never_overwrites(tmp_path):
     src = _project_dxf(tmp_path, _doc())
     brain = _brain(tmp_path)

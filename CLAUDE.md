@@ -36,6 +36,8 @@ Architect drawings are read with the `drawing-intelligence` skill
 `.venv\Scripts\python.exe -m structiq.drawing.pipeline "<drawing.dwg|.dxf>"`.
 Only RC walls are drawn; brick walls are counted in the report. Each run writes the
 next `Rev NN` and never overwrites an earlier one.
+Each generated report includes an unchecked engineer review checklist based on its
+flagged findings; it remains a draft and the checklist does not imply approval.
 
 Beams (`src/structiq/framing/`): `learn.py` measures the engineer's sample design, `rules.py` loads
 the approved rules from the Core Brain (`beam-rules.yaml`), `arrange.py` proposes beams per plan,

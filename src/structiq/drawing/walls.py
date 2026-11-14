@@ -194,12 +194,18 @@ def format_walls_report(result: WallResult) -> str:
         if not rc:
             out.append("  No RC walls identified in this plan.")
     if not result.rc_walls:
-        out.append(
-            "\n! No RC wall segments identified: no wall layer matches the RC layer pattern. "
-            "Name the layers that hold RC walls with --rc-layers, or have them put on a "
-            "dedicated layer. Walls from the brick layers are not drawn. (Lift core walls "
-            "are found separately: see LIFTS.)"
-        )
+        if result.rejected_structural:
+            out.append(
+                "\n! No RC wall segments identified: objects on an RC-matching layer were "
+                "rejected by the wall-shape filter. Check the candidates below."
+            )
+        else:
+            out.append(
+                "\n! No RC wall segments identified: no wall geometry was accepted from "
+                "RC-matching layers. Check the RC layer pattern and other extraction flags "
+                "below. Walls from the brick layers are not drawn. (Lift core walls are "
+                "found separately: see LIFTS.)"
+            )
     if result.rejected_structural:
         out.append(
             f"\n! {len(result.rejected_structural)} object(s) on an RC-matching layer are too small "

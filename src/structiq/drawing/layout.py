@@ -144,7 +144,42 @@ def format_layout_report(
     if brain_version:
         first, rest = text.split("\n", 1)
         text = f"{first}\nCore Brain version: {brain_version}\n{rest}"
-    return text
+    return text + "\n\n" + format_review_checklist(parts)
+
+
+def format_review_checklist(report_sections: list[str]) -> str:
+    """Turn report flags into a manual checklist; checklist state is not auto-approved."""
+    findings = []
+    for section in report_sections:
+        plan = None
+        for line in section.splitlines():
+            if line.startswith("Plan "):
+                plan = line.partition(":")[0]
+            if "!" not in line:
+                continue
+            prefix, _, finding = line.partition("!")
+            finding = finding.strip()
+            if not finding:
+                continue
+            if prefix.startswith("Plan "):
+                finding = f"{prefix.partition(':')[0]}: {finding}"
+            elif prefix[:1].isspace():
+                context = prefix.strip()
+                if plan:
+                    finding = f"{plan}: {context + ': ' if context else ''}{finding}"
+            findings.append(finding)
+
+    out = [
+        "ENGINEER REVIEW CHECKLIST",
+        "[ ] Confirm detected grids, columns, walls, slabs, openings, stairs, lift cores, "
+        "and any preliminary framing against the source drawing.",
+        "[ ] Resolve or document each flagged finding before issuing a drawing. "
+        "This generated output remains DRAFT.",
+    ]
+    out.extend(f"[ ] {finding}" for finding in findings)
+    if not findings:
+        out.append("[ ] Review and record the disposition of any other findings above.")
+    return "\n".join(out)
 
 
 def _add_bubbles(doc, layout: Layout, sheets: list[PlanSheet]) -> None:
