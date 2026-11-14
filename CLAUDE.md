@@ -44,6 +44,10 @@ Do not duplicate brain rules in this file. Change them in the Core Brain.
 - Run tests with `pytest`.
 - `config/paths.yaml` is local and git-ignored; edit `paths.example.yaml` for
   shared changes.
+- DWG input is always converted to DXF first (`structiq.drawing.convert.dwg_to_dxf`):
+  ODA File Converter when installed, otherwise LibreDWG `dwg2dxf`
+  (`D:\Dev\tools\libredwg-0.14.8969`). Code and skills only read DXF (ezdxf).
+  Never edit the source DWG; write results to new files.
 - ETABS, SAFE, AutoCAD and Revit adapters run only on a Windows desktop with
   the software installed; keep them in `src/structiq/tools` behind interfaces
   so the calculation core stays testable without them.
