@@ -215,8 +215,8 @@ def format_report(result: GridResult, unit: str = "mm", source: str | None = Non
     return "\n".join(out)
 
 
-def write_grid_dxf(result: GridResult, path: str | Path, text_height: float = 350.0) -> Path:
-    """Write a new DXF with only the structural grid (layers S-GRID, S-GRID-TXT)."""
+def build_grid_doc(result: GridResult, text_height: float = 350.0):
+    """New DXF document holding only the structural grid (S-GRID, S-GRID-TXT)."""
     doc = ezdxf.new("R2018", setup=True)
     doc.units = 4  # millimetres
     doc.layers.add("S-GRID", color=1, linetype="CENTER")
@@ -235,8 +235,13 @@ def write_grid_dxf(result: GridResult, path: str | Path, text_height: float = 35
                 msp.add_text(
                     ln.label, height=text_height, dxfattribs={"layer": "S-GRID-TXT", "insert": tp}
                 )
+    return doc
+
+
+def write_grid_dxf(result: GridResult, path: str | Path, text_height: float = 350.0) -> Path:
+    """Write a new DXF with only the structural grid (layers S-GRID, S-GRID-TXT)."""
     out = Path(path)
-    doc.saveas(out)
+    build_grid_doc(result, text_height).saveas(out)
     return out
 
 
