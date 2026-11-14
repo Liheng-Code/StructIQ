@@ -194,6 +194,33 @@ def extract_grids(
     return GridResult(clusters, unmatched)
 
 
+def trimmed_range(cluster: GridCluster, line: GridLine, trim: float | None) -> tuple[float, float]:
+    """(start, end) of ``line`` cut to ``trim`` mm beyond the outermost crossing gridlines.
+
+    Architect gridlines often run far past the building; trimming them keeps a sheet at a
+    sensible scale. ``None`` keeps the drawn length. A line is never made longer.
+    """
+    crossing = cluster.horizontal if line.direction == "V" else cluster.vertical
+    if trim is None or not crossing:
+        return line.start, line.end
+    pos = [ln.position for ln in crossing]
+    return max(line.start, min(pos) - trim), min(line.end, max(pos) + trim)
+
+
+def trimmed_bbox(cluster: GridCluster, trim: float | None) -> tuple[float, float, float, float]:
+    """Bounding box of the cluster's gridlines after trimming (xmin, ymin, xmax, ymax)."""
+    xs, ys = [], []
+    for ln in cluster.vertical:
+        s, e = trimmed_range(cluster, ln, trim)
+        xs.append(ln.position)
+        ys += [s, e]
+    for ln in cluster.horizontal:
+        s, e = trimmed_range(cluster, ln, trim)
+        ys.append(ln.position)
+        xs += [s, e]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def grid_bay(cluster: GridCluster, x: float, y: float) -> tuple[str, str] | None:
     """Return ("A-B", "2-3"): the grid bay (pair of lines per direction) containing (x, y)."""
 
@@ -230,27 +257,36 @@ def format_report(result: GridResult, unit: str = "mm", source: str | None = Non
     return "\n".join(out)
 
 
-def build_grid_doc(result: GridResult, text_height: float = 350.0, labels: str = "text"):
+def build_grid_doc(
+    result: GridResult,
+    text_height: float = 350.0,
+    labels: str = "text",
+    trim: float | None = None,
+):
     """New DXF document holding only the structural grid (S-GRID, S-GRID-TXT).
 
     ``labels="text"`` writes plain text labels; ``"none"`` leaves labels to the caller
-    (the layout draws scaled STIQ-GRID-BUBBLE blocks instead).
+    (the layout draws scaled STIQ-GRID-BUBBLE blocks instead). ``trim`` cuts every
+    gridline to that many mm beyond the outermost crossing gridlines.
     """
     doc = ezdxf.new("R2018", setup=True)
     template.define_styles(doc)  # StructIQ layers, linetypes and text styles (units: mm)
     msp = doc.modelspace()
     for c in result.clusters:
         for ln in c.vertical + c.horizontal:
+            start, end = trimmed_range(c, ln, trim)
             if ln.direction == "V":
-                a, b = (ln.position, ln.start), (ln.position, ln.end)
-                tp = (ln.position, ln.end + text_height)
+                a, b = (ln.position, start), (ln.position, end)
+                tp = (ln.position, end + text_height)
             else:
-                a, b = (ln.start, ln.position), (ln.end, ln.position)
-                tp = (ln.start - 2 * text_height, ln.position)
+                a, b = (start, ln.position), (end, ln.position)
+                tp = (start - 2 * text_height, ln.position)
             msp.add_line(a, b, dxfattribs={"layer": "S-GRID"})
             if ln.label and labels == "text":
                 msp.add_text(
-                    ln.label, height=text_height, dxfattribs={"layer": "S-GRID-TXT", "insert": tp}
+                    ln.label,
+                    height=text_height,
+                    dxfattribs={"layer": "S-GRID-TXT", "insert": tp, "style": "STIQ-TEXT"},
                 )
     return doc
 

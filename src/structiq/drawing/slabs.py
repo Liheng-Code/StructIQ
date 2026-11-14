@@ -191,8 +191,11 @@ def format_slabs_report(result: SlabResult, grid_result: grids.GridResult) -> st
     return "\n".join(out)
 
 
-def add_slabs(doc, result: SlabResult) -> None:
-    """Add outlines on S-SLAB-EDGE; open outlines and circles go to S-SLAB-CHECK."""
+def add_slabs(doc, result: SlabResult, text_height=None) -> None:
+    """Add outlines on S-SLAB-EDGE; open outlines and circles go to S-SLAB-CHECK.
+
+    ``text_height(plan)`` gives the label height (Arial, STIQ-TEXT); default 300 mm.
+    """
     for name, color in (("S-SLAB-EDGE", 4), ("S-SLAB-CHECK", 6), ("S-SLAB-TXT", 2)):
         if name not in doc.layers:
             doc.layers.add(name, color=color)
@@ -204,6 +207,10 @@ def add_slabs(doc, result: SlabResult) -> None:
             cx = sum(p[0] for p in s.points) / len(s.points)
             cy = sum(p[1] for p in s.points) / len(s.points)
             label = f"SLAB {s.area_m2:.1f} m2" if s.area_m2 is not None else "SLAB"
-            msp.add_text(label, height=300, dxfattribs={"layer": "S-SLAB-TXT", "insert": (cx, cy)})
+            msp.add_text(
+                label,
+                height=text_height(s.plan) if text_height else 300,
+                dxfattribs={"layer": "S-SLAB-TXT", "insert": (cx, cy), "style": "STIQ-TEXT"},
+            )
     for f in result.features:
         msp.add_circle((f.x, f.y), f.radius, dxfattribs={"layer": "S-SLAB-CHECK"})

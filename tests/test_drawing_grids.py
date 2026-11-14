@@ -56,6 +56,15 @@ def test_missing_label_is_warned():
     assert any("no label" in w for w in result.clusters[0].warnings)
 
 
+def test_gridlines_can_be_trimmed_to_the_building():
+    c = grids.extract_grids(_doc_with_grid()).clusters[0]
+    vertical = c.vertical[0]  # drawn y -2000..9000, crossing lines at y 0 and 7000
+    assert grids.trimmed_range(c, vertical, None) == (-2000.0, 9000.0)
+    assert grids.trimmed_range(c, vertical, 500.0) == (-500.0, 7500.0)
+    assert grids.trimmed_range(c, vertical, 5000.0) == (-2000.0, 9000.0)  # never longer
+    assert grids.trimmed_bbox(c, 500.0) == (-500.0, -500.0, 11500.0, 7500.0)
+
+
 def test_write_grid_dxf_has_structural_layers(tmp_path):
     result = grids.extract_grids(_doc_with_grid())
     out = grids.write_grid_dxf(result, tmp_path / "grid.dxf")

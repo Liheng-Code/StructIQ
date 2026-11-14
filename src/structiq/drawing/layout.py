@@ -1,9 +1,10 @@
 """Full structural layout from an architect DXF.
 
-Grid, columns, walls, slabs, openings (MEP shafts) and stairs in one DXF on
-structural layers, plus a DRAFT text report. When sheet fields are given, each plan
-is also placed on its own A3 sheet from the StructIQ template (title block filled,
-viewport at a fitted scale, grid labels drawn as scaled bubbles).
+Grid, columns, RC walls, slabs, openings (MEP shafts), stairs and lift cores in one DXF
+on structural layers, plus a DRAFT text report. When sheet fields are given, each plan
+is also placed on its own A3 sheet from the StructIQ template: title block filled,
+viewport at a standard scale fitted to the plan, gridlines trimmed to the building,
+grid labels as scaled bubbles, and all text in Arial at 1.5 mm at A3.
 
 Usage::
 
@@ -21,9 +22,19 @@ from pathlib import Path
 import ezdxf
 from ezdxf import zoom
 
-from structiq.drawing import columns, grids, openings, slabs, stairs, template, walls
+from structiq.drawing import (
+    columns,
+    grids,
+    lifts,
+    openings,
+    slabs,
+    stairs,
+    template,
+    walls,
+)
 
-EXTENT_MARGIN = 2000.0  # mm around a plan: room for the grid bubbles beyond the line ends
+GRID_TRIM = 2500.0  # mm: gridlines stop this far beyond the outermost crossing gridline
+EXTENT_MARGIN = 1500.0  # mm around a plan: room for the grid bubbles beyond the line ends
 
 
 @dataclass
@@ -34,6 +45,7 @@ class Layout:
     slabs: slabs.SlabResult
     openings: openings.OpeningResult
     stairs: stairs.StairResult
+    lifts: lifts.LiftResult
 
 
 @dataclass
@@ -64,6 +76,7 @@ def extract_layout(doc, rc_layer_pattern: str | None = None) -> Layout:
         slb,
         openings.extract_openings(doc, g, wls, cols, slb),
         stairs.extract_stairs(doc, g, slb),
+        lifts.extract_lifts(doc, g, slb),
     )
 
 
@@ -71,10 +84,11 @@ def plan_sheets(layout: Layout) -> list[PlanSheet]:
     """One A3 sheet per plan: extent of everything drawn for it, plus a fitted scale."""
     sheets = []
     for c in layout.grid.clusters:
-        x0, y0, x1, y1 = c.bbox
+        x0, y0, x1, y1 = grids.trimmed_bbox(c, GRID_TRIM)
         boxes = [s.bbox for s in layout.slabs.slabs if s.plan == c.index]
         boxes += [s.footprint for s in layout.stairs.stairs if s.plan == c.index]
         boxes += [o.rect for o in layout.openings.openings if o.plan == c.index and o.rect]
+        boxes += [lift.outer for lift in layout.lifts.lifts if lift.plan == c.index]
         for bx0, by0, bx1, by1 in boxes:
             x0, y0, x1, y1 = min(x0, bx0), min(y0, by0), max(x1, bx1), max(y1, by1)
         m = EXTENT_MARGIN
@@ -93,8 +107,9 @@ def format_sheets_report(sheets: list[PlanSheet]) -> str:
         w, h = s.size_m
         out.append(f"  {s.name}: plan {s.plan}, scale 1:{s.scale}, area shown {w:.1f} x {h:.1f} m")
     out.append(
-        "  Title block: stage DRAFT FOR REVIEW; drawing numbers and client are left blank "
-        "for the engineer."
+        f"  Gridlines are trimmed to {GRID_TRIM / 1000:.1f} m beyond the outermost crossing "
+        "gridline. Text is Arial 1.5 mm at A3. Title block: stage DRAFT FOR REVIEW; drawing "
+        "numbers and client are left blank for the engineer."
     )
     return "\n".join(out)
 
@@ -112,6 +127,7 @@ def format_layout_report(
         slabs.format_slabs_report(layout.slabs, layout.grid),
         openings.format_openings_report(layout.openings),
         stairs.format_stairs_report(layout.stairs),
+        lifts.format_lifts_report(layout.lifts),
     ]
     if sheets:
         parts.append(format_sheets_report(sheets))
@@ -128,11 +144,11 @@ def _add_bubbles(doc, layout: Layout, sheets: list[PlanSheet]) -> None:
     for sheet in sheets:
         s = sheet.scale
         cluster = next(c for c in layout.grid.clusters if c.index == sheet.plan)
-        places = [
-            ((ln.position, ln.end + 3.0 * s), ln.label) for ln in cluster.vertical  # top end
-        ] + [
-            ((ln.start - 3.0 * s, ln.position), ln.label) for ln in cluster.horizontal  # left end
-        ]
+        places = []
+        for ln in cluster.vertical:  # top end
+            places.append(((ln.position, grids.trimmed_range(cluster, ln, GRID_TRIM)[1] + 3.0 * s), ln.label))
+        for ln in cluster.horizontal:  # left end
+            places.append(((grids.trimmed_range(cluster, ln, GRID_TRIM)[0] - 3.0 * s, ln.position), ln.label))
         for pos, label in places:
             if not label:
                 continue
@@ -152,14 +168,23 @@ def write_layout(
 ) -> Path:
     """Write the layout DXF. With ``sheet_fields`` each plan also gets an A3 sheet."""
     with_sheets = sheet_fields is not None
-    doc = grids.build_grid_doc(layout.grid, labels="none" if with_sheets else "text")
-    columns.add_columns(doc, layout.columns)
-    walls.add_walls(doc, layout.walls)
-    slabs.add_slabs(doc, layout.slabs)
-    openings.add_openings(doc, layout.openings)
-    stairs.add_stairs(doc, layout.stairs)
     if with_sheets:
         sheets = sheets if sheets is not None else plan_sheets(layout)
+        text_height = template.text_height_for({s.plan: s.scale for s in sheets})
+    else:
+        text_height = None
+    doc = grids.build_grid_doc(
+        layout.grid,
+        labels="none" if with_sheets else "text",
+        trim=GRID_TRIM if with_sheets else None,
+    )
+    columns.add_columns(doc, layout.columns, text_height)
+    walls.add_walls(doc, layout.walls)
+    slabs.add_slabs(doc, layout.slabs, text_height)
+    openings.add_openings(doc, layout.openings, text_height)
+    stairs.add_stairs(doc, layout.stairs, text_height)
+    lifts.add_lifts(doc, layout.lifts, text_height)
+    if with_sheets:
         template.add_sheet_blocks(doc)
         _add_bubbles(doc, layout, sheets)
         for sheet in sheets:

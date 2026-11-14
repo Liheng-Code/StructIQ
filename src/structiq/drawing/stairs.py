@@ -19,9 +19,8 @@ the stair centre lies inside the slab outline (so the outline has no void there)
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from ezdxf.math import Vec3
 
@@ -32,7 +31,6 @@ DEPTH_RANGE = (150.0, 400.0)  # tread depth, mm
 WIDTH_RANGE = (600.0, 2500.0)  # flight width, mm
 PITCH_TOL = 3.0  # mm
 PLAN_MARGIN = 3000.0  # mm
-LIFT_PATTERN = r"LIFT|ELEVATOR"
 
 
 @dataclass
@@ -59,7 +57,6 @@ class StairResult:
     stairs: list[Stair]
     skewed_blocks: int = 0
     outside_plans: int = 0
-    lift_labels: list[str] = field(default_factory=list)
 
 
 RECT_TOL = 1.0  # mm: drawn rectangles are often off by a fraction of a millimetre
@@ -189,12 +186,6 @@ def extract_stairs(doc, grid_result: grids.GridResult, slab_result: slabs.SlabRe
             Stair(plan.index, name, flights, foot, grids.grid_bay(plan, cx, cy), inside)
         )
 
-    lift = re.compile(LIFT_PATTERN, re.I)
-    for e in msp:
-        if e.dxftype() in ("TEXT", "MTEXT"):
-            s = (e.dxf.text if e.dxftype() == "TEXT" else e.plain_text()).strip()
-            if lift.search(s):
-                result.lift_labels.append(s)
     result.stairs.sort(key=lambda s: (s.plan, s.footprint[0], s.footprint[1]))
     return result
 
@@ -222,15 +213,14 @@ def format_stairs_report(result: StairResult) -> str:
         out.append(f"\n! {result.skewed_blocks} block(s) rotated off 90 degrees were skipped.")
     if result.outside_plans:
         out.append(f"\nStair-like blocks outside any plan (not listed): {result.outside_plans}")
-    if result.lift_labels:
-        out.append(f"\nLift/elevator text found: {sorted(set(result.lift_labels))}")
-    else:
-        out.append("\nNo lift or elevator detected (no LIFT/ELEVATOR text in the drawing). Confirm.")
     return "\n".join(out)
 
 
-def add_stairs(doc, result: StairResult) -> None:
-    """Add flights and footprints on S-STAIR, labels on S-STAIR-TXT."""
+def add_stairs(doc, result: StairResult, text_height=None) -> None:
+    """Add flights and footprints on S-STAIR, labels on S-STAIR-TXT.
+
+    ``text_height(plan)`` gives the label height (Arial, STIQ-TEXT); default 250 mm.
+    """
     for name, color in (("S-STAIR", 150), ("S-STAIR-TXT", 2)):
         if name not in doc.layers:
             doc.layers.add(name, color=color)
@@ -247,6 +237,6 @@ def add_stairs(doc, result: StairResult) -> None:
             )
         msp.add_text(
             f"STAIR {len(s.flights)}F x {s.flights[0].treads}T",
-            height=250,
-            dxfattribs={"layer": "S-STAIR-TXT", "insert": (x0, y1 + 150)},
+            height=text_height(s.plan) if text_height else 250,
+            dxfattribs={"layer": "S-STAIR-TXT", "insert": (x0, y1 + 150), "style": "STIQ-TEXT"},
         )

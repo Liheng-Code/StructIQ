@@ -165,8 +165,11 @@ def format_openings_report(result: OpeningResult) -> str:
     return "\n".join(out)
 
 
-def add_openings(doc, result: OpeningResult) -> None:
-    """Bounded cells on S-OPEN (shafts) or S-OPEN-ROOM; label-only on S-OPEN-CHECK."""
+def add_openings(doc, result: OpeningResult, text_height=None) -> None:
+    """Bounded cells on S-OPEN (shafts) or S-OPEN-ROOM; label-only on S-OPEN-CHECK.
+
+    ``text_height(plan)`` gives the label height (Arial, STIQ-TEXT); default 150 mm.
+    """
     for name, color in (
         ("S-OPEN", 30),
         ("S-OPEN-ROOM", 8),
@@ -186,5 +189,7 @@ def add_openings(doc, result: OpeningResult) -> None:
         else:
             msp.add_circle((o.x, o.y), 200, dxfattribs={"layer": "S-OPEN-CHECK"})
         msp.add_text(
-            o.label, height=150, dxfattribs={"layer": "S-OPEN-TXT", "insert": (o.x, o.y)}
+            o.label,
+            height=text_height(o.plan) if text_height else 150,
+            dxfattribs={"layer": "S-OPEN-TXT", "insert": (o.x, o.y), "style": "STIQ-TEXT"},
         )

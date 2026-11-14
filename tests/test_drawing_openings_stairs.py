@@ -101,15 +101,6 @@ def test_too_few_treads_or_skewed_rotation_not_a_stair():
     assert r.stairs == [] and r.skewed_blocks == 1
 
 
-def test_no_lift_message_and_lift_text_detected():
-    doc = _base_doc()
-    g, s = _pipeline(doc)
-    assert "No lift" in stairs.format_stairs_report(stairs.extract_stairs(doc, g, s))
-    doc.modelspace().add_mtext("LIFT LOBBY", dxfattribs={"insert": (500, 500)})
-    r = stairs.extract_stairs(doc, g, s)
-    assert r.lift_labels == ["LIFT LOBBY"]
-
-
 def _wall(x0, y0, x1, y1):
     return walls.Wall(
         1, "H" if x1 - x0 >= y1 - y0 else "V", x0, y0, x1, y1,

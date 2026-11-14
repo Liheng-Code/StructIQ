@@ -141,6 +141,11 @@ def model_text_height(scale: int, paper_mm: float = TEXT_HEIGHT) -> float:
     return paper_mm * scale
 
 
+def text_height_for(scales: dict[int, int]):
+    """Return ``height(plan)``: the model-space height that prints at 1.5 mm on that plan's sheet."""
+    return lambda plan: model_text_height(scales.get(plan, 100))
+
+
 def _aci_for(rgb) -> int:
     return {BLACK: 7, MAROON: 1, GREY: 8, TEAL: 4, DARK_RED: 1, BROWN: 30, BLUE: 5, OLIVE: 62}[rgb]
 
@@ -369,7 +374,7 @@ def viewport_area() -> tuple[float, float, float, float]:
     )
 
 
-def fit_scale(width_mm: float, height_mm: float, factor: float = 0.9) -> int:
+def fit_scale(width_mm: float, height_mm: float, factor: float = 0.95) -> int:
     """Smallest standard scale (1:n) at which a model-space box fits the viewport.
 
     ``factor`` keeps a margin. If even 1:200 is too small, the scale is rounded up to

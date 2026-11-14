@@ -49,6 +49,11 @@ From `D:\Dev\StructIQ`:
 | Slab boundary | `S-SLAB-EDGE`, `S-SLAB-CHECK`, `S-SLAB-TXT` | outline polylines on the slab layer, area, grid coverage |
 | MEP shafts | `S-OPEN`, `S-OPEN-ROOM`, `S-OPEN-CHECK`, `S-OPEN-TXT` | text labels enclosed by walls/columns |
 | Stairs | `S-STAIR`, `S-STAIR-TXT` | stacked tread rectangles (flights, tread depth, footprint) |
+| Lift cores | `S-WALL` (core wall), `S-OPEN` (clear shaft), `S-OPEN-TXT` | block holding a lift car symbol on an ELEVATOR/LIFT layer; the wall body outline in it is the RC core |
+
+All text in the output is Arial (`STIQ-TEXT`) at 1.5 mm at A3: model-space height = 1.5 x the
+plan's sheet scale. Gridlines are trimmed to 2.5 m beyond the outermost crossing gridline so
+each plan fits its sheet at a standard scale.
 
 ## After it runs
 

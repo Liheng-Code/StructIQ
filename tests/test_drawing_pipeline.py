@@ -61,7 +61,7 @@ def test_no_rc_layer_means_no_walls_drawn_and_a_clear_flag(tmp_path):
     lay = layout.extract_layout(_doc(with_rc=False))
     out = layout.write_layout(lay, tmp_path / "l.dxf")
     assert len(ezdxf.readfile(out).modelspace().query("LWPOLYLINE[layer=='S-WALL']")) == 0
-    assert "No RC walls identified anywhere" in layout.format_layout_report(lay)
+    assert "No RC wall segments identified" in layout.format_layout_report(lay)
 
 
 def test_pipeline_writes_next_revision_each_run_and_never_overwrites(tmp_path):
@@ -107,13 +107,23 @@ def test_sheet_viewport_is_at_the_fitted_scale_and_grid_uses_scaled_bubbles(tmp_
     doc = ezdxf.readfile(pipeline.run(src, brain_dir=_brain(tmp_path)).dxf)
     # the layout's own main viewport (id 1) comes first; ours is the last one
     vp = sorted(doc.layouts.get("A3-PLAN-1").query("VIEWPORT"), key=lambda v: v.dxf.id)[-1]
-    # the viewport is cut to the plan (19 x 15 m at 1:75), so other plans stay out of the sheet
-    assert (round(vp.dxf.width), round(vp.dxf.height)) == (253, 200)
-    assert round(vp.dxf.view_height) == 15000
+    # the viewport is cut to the plan (18 x 14 m at 1:75), so other plans stay out of the sheet
+    assert (round(vp.dxf.width), round(vp.dxf.height)) == (240, 187)
+    assert round(vp.dxf.view_height) == 14000
     bubbles = [i for i in doc.modelspace().query("INSERT") if i.dxf.name == "STIQ-GRID-BUBBLE"]
     assert len(bubbles) == 5 and all(b.dxf.xscale == 75 for b in bubbles)
     assert {a.dxf.text for b in bubbles for a in b.attribs} == {"A", "B", "C", "1", "2"}
     assert len(doc.modelspace().query("TEXT[layer=='S-GRID-TXT']")) == 0
+
+
+def test_all_text_is_arial_and_prints_1_5_mm_at_a3(tmp_path):
+    src = _project_dxf(tmp_path, _doc())
+    doc = ezdxf.readfile(pipeline.run(src, brain_dir=_brain(tmp_path)).dxf)
+    texts = list(doc.modelspace().query("TEXT"))
+    assert texts, "the slab label should be there"
+    # plan sheet at 1:75 -> 1.5 mm x 75 = 112.5 model mm
+    assert all(t.dxf.style == "STIQ-TEXT" and abs(t.dxf.height - 112.5) < 0.01 for t in texts)
+    assert doc.styles.get("STIQ-TEXT").dxf.font.lower() == "arial.ttf"
 
 
 def test_every_sheet_and_the_model_tab_open_zoomed_to_their_content(tmp_path):

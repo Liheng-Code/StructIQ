@@ -202,8 +202,11 @@ def write_layout_dxf(
     return out
 
 
-def add_columns(doc, col_result: ColumnResult) -> None:
-    """Add the S-COLS / S-COLS-TXT layers and column shapes to ``doc``."""
+def add_columns(doc, col_result: ColumnResult, text_height=None) -> None:
+    """Add the S-COLS / S-COLS-TXT layers and column shapes to ``doc``.
+
+    ``text_height(plan)`` gives the tag height (Arial, STIQ-TEXT); default 200 mm.
+    """
     template.define_styles(doc)  # no-op when the layers already exist
     msp = doc.modelspace()
     for c in col_result.columns:
@@ -215,8 +218,12 @@ def add_columns(doc, col_result: ColumnResult) -> None:
         hatch.paths.add_polyline_path(pts, is_closed=True)
         msp.add_text(
             c.grid_ref if c.on_grid else f"{c.grid_ref}?",
-            height=200,
-            dxfattribs={"layer": "S-COLS-TXT", "insert": (x1 + 100, y1 + 100)},
+            height=text_height(c.plan) if text_height else 200,
+            dxfattribs={
+                "layer": "S-COLS-TXT",
+                "insert": (x1 + 100, y1 + 100),
+                "style": "STIQ-TEXT",
+            },
         )
 
 
