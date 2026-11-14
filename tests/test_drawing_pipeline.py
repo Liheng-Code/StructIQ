@@ -116,6 +116,23 @@ def test_sheet_viewport_is_at_the_fitted_scale_and_grid_uses_scaled_bubbles(tmp_
     assert len(doc.modelspace().query("TEXT[layer=='S-GRID-TXT']")) == 0
 
 
+def test_every_sheet_and_the_model_tab_open_zoomed_to_their_content(tmp_path):
+    src = _project_dxf(tmp_path, _doc())
+    doc = ezdxf.readfile(pipeline.run(src, brain_dir=_brain(tmp_path)).dxf)
+    main = sorted(doc.layouts.get("A3-PLAN-1").query("VIEWPORT"), key=lambda v: v.dxf.id)[0]
+    assert 297 <= main.dxf.view_height <= 400
+    vport = doc.viewports.get("*Active")[0]
+    assert vport.dxf.height < 100000  # the plans are ~15 m: not the default or an absurd size
+
+
+def test_file_opens_on_the_first_sheet_not_the_model_tab(tmp_path):
+    src = _project_dxf(tmp_path, _doc())
+    doc = ezdxf.readfile(pipeline.run(src, brain_dir=_brain(tmp_path)).dxf)
+    assert doc.header["$TILEMODE"] == 0
+    active = doc.layouts.get_active_layout_key()
+    assert doc.layouts.get("A3-PLAN-1").layout_key == active
+
+
 def test_second_run_makes_second_revision_with_r01_in_the_title_block(tmp_path):
     src = _project_dxf(tmp_path, _doc())
     brain = _brain(tmp_path)

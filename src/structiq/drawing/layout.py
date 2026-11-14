@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import ezdxf
+from ezdxf import zoom
 
 from structiq.drawing import columns, grids, openings, slabs, stairs, template, walls
 
@@ -175,6 +176,9 @@ def write_layout(
             )
         if "Layout1" in doc.layouts:
             doc.layouts.delete("Layout1")
+        if sheets:
+            template.open_on_sheet(doc, sheets[0].name)  # open on the first sheet, not Model
+    zoom.extents(doc.modelspace(), factor=1.05)  # Model tab: show all plans, not an empty area
     out = Path(path)
     doc.saveas(out)
     return out

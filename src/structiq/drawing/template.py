@@ -408,7 +408,7 @@ def add_sheet(
         units="mm",
         offset=(0, 0),
         rotation=0,
-        scale=1,
+        scale=(1, 1),  # plot scale 1:1 (a plain int would pick a standard scale such as 1:1689)
         name="ISO_A3_(420.00_x_297.00_MM)",
         device="DWG To PDF.pc3",
     )
@@ -425,10 +425,23 @@ def add_sheet(
         size=(width, height),
         view_center_point=view_center,
         view_height=height * scale,
-        status=1,
+        status=2,  # 1 is the layout's own main viewport (created by page_setup)
         dxfattribs={"layer": "S-VPORT"},
     )
+    # page_setup made the main viewport fit the paper (1:1), which is what AutoCAD uses
+    # for the first display of the sheet. Give the layout real extents as well.
+    layout.reset_extents(extmin=(0.0, 0.0, 0.0), extmax=(SHEET_W, SHEET_H, 0.0))
     return layout
+
+
+def open_on_sheet(doc, name: str) -> None:
+    """Make AutoCAD open the drawing on sheet ``name`` instead of the Model tab.
+
+    The title block, notes and viewport live in the sheet (paper space), so a drawing that
+    opens on the Model tab shows no title block until the sheet tab is clicked.
+    """
+    doc.layouts.set_active_layout(name)
+    doc.header["$TILEMODE"] = 0
 
 
 def build_template():
@@ -438,6 +451,7 @@ def build_template():
     add_sheet(doc, "A3", defaults, (0.0, 0.0), 100)
     if "Layout1" in doc.layouts:  # the default layout; a paper space layout must always remain
         doc.layouts.delete("Layout1")
+    open_on_sheet(doc, "A3")
     return doc
 
 

@@ -82,6 +82,27 @@ def test_general_notes_and_blocks(doc):
     assert bubble.query("CIRCLE").first.dxf.radius == 2.5  # 5.0 mm bubble
 
 
+def test_main_viewport_is_fitted_to_the_sheet_so_it_does_not_open_as_a_dot(doc):
+    layout = doc.layouts.get("A3")
+    main = sorted(layout.query("VIEWPORT"), key=lambda v: v.dxf.id)[0]
+    assert main.dxf.id == 1
+    assert 297 <= main.dxf.view_height <= 400  # about the sheet height, not hundreds of metres
+    centre = main.dxf.view_center_point
+    assert (round(centre.x), round(centre.y)) == (210, 148)
+    assert tuple(layout.dxf.extmax)[:2] == (420.0, 297.0)
+
+
+def test_sheet_plots_at_1_to_1(doc):
+    layout = doc.layouts.get("A3")
+    assert layout.dxf.scale_numerator == 1 and layout.dxf.scale_denominator == 1
+    assert (layout.dxf.paper_width, layout.dxf.paper_height) == (420.0, 297.0)
+
+
+def test_template_opens_on_the_a3_sheet(doc):
+    assert doc.header["$TILEMODE"] == 0
+    assert doc.layouts.get("A3").layout_key == doc.layouts.get_active_layout_key()
+
+
 def test_fit_scale_picks_the_smallest_standard_scale_that_fits():
     assert tpl.fit_scale(1000, 1000) == 20
     assert tpl.fit_scale(20000, 20000) == 100  # 20 m needs 1:85 -> next standard is 1:100
