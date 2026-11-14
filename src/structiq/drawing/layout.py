@@ -32,6 +32,7 @@ from structiq.drawing import (
     template,
     walls,
 )
+from structiq.framing import arrange, draw as beam_draw
 
 GRID_TRIM = 2500.0  # mm: gridlines stop this far beyond the outermost crossing gridline
 EXTENT_MARGIN = 1500.0  # mm around a plan: room for the grid bubbles beyond the line ends
@@ -46,6 +47,7 @@ class Layout:
     openings: openings.OpeningResult
     stairs: stairs.StairResult
     lifts: lifts.LiftResult
+    beams: arrange.BeamResult | None = None  # only when approved beam rules were given
 
 
 @dataclass
@@ -64,12 +66,13 @@ class PlanSheet:
         return (self.extent[0] + self.extent[2]) / 2, (self.extent[1] + self.extent[3]) / 2
 
 
-def extract_layout(doc, rc_layer_pattern: str | None = None) -> Layout:
+def extract_layout(doc, rc_layer_pattern: str | None = None, beam_rules=None) -> Layout:
+    """Read the architect drawing; with approved ``beam_rules`` also arrange the beams."""
     g = grids.extract_grids(doc)
     cols = columns.extract_columns(doc, g)
     wls = walls.extract_walls(doc, g, rc_layer_pattern)
     slb = slabs.extract_slabs(doc, g)
-    return Layout(
+    lay = Layout(
         g,
         cols,
         wls,
@@ -78,6 +81,9 @@ def extract_layout(doc, rc_layer_pattern: str | None = None) -> Layout:
         stairs.extract_stairs(doc, g, slb),
         lifts.extract_lifts(doc, g, slb),
     )
+    if beam_rules is not None:
+        lay.beams = arrange.arrange_beams(lay, beam_rules)
+    return lay
 
 
 def plan_sheets(layout: Layout) -> list[PlanSheet]:
@@ -119,6 +125,7 @@ def format_layout_report(
     source: str | None = None,
     brain_version: str | None = None,
     sheets: list[PlanSheet] | None = None,
+    plan_names: dict[int, str] | None = None,
 ) -> str:
     parts = [
         grids.format_report(layout.grid, source=source),
@@ -129,6 +136,8 @@ def format_layout_report(
         stairs.format_stairs_report(layout.stairs),
         lifts.format_lifts_report(layout.lifts),
     ]
+    if layout.beams is not None:
+        parts.append(arrange.format_beams_report(layout.beams, plan_names))
     if sheets:
         parts.append(format_sheets_report(sheets))
     text = "\n\n".join(parts)
@@ -165,8 +174,14 @@ def write_layout(
     path: str | Path,
     sheet_fields: dict[str, str] | None = None,
     sheets: list[PlanSheet] | None = None,
+    plan_names: dict[int, str] | None = None,
 ) -> Path:
-    """Write the layout DXF. With ``sheet_fields`` each plan also gets an A3 sheet."""
+    """Write the layout DXF. With ``sheet_fields`` each plan also gets an A3 sheet.
+
+    ``plan_names`` (plan number to floor label, e.g. {3: "4F-6F"}) names the floors on the
+    sheets and in the framing schedule.
+    """
+    names = plan_names or {}
     with_sheets = sheet_fields is not None
     if with_sheets:
         sheets = sheets if sheets is not None else plan_sheets(layout)
@@ -184,13 +199,25 @@ def write_layout(
     openings.add_openings(doc, layout.openings, text_height)
     stairs.add_stairs(doc, layout.stairs, text_height)
     lifts.add_lifts(doc, layout.lifts, text_height)
+    if layout.beams is not None:
+        beam_draw.add_beams(doc, layout.beams, text_height)
     if with_sheets:
         template.add_sheet_blocks(doc)
         _add_bubbles(doc, layout, sheets)
         for sheet in sheets:
             fields = dict(sheet_fields)
-            fields["DRAWING_NAME"] = f"STRUCTURAL LAYOUT PLAN {sheet.plan}"
+            label = names.get(sheet.plan)
+            fields["DRAWING_NAME"] = (
+                f"{label} STRUCTURAL LAYOUT" if label else f"STRUCTURAL LAYOUT PLAN {sheet.plan}"
+            )
             fields["SCALE"] = f"1 : {sheet.scale}"
+            schedule = None
+            if layout.beams is not None:
+                rows = [
+                    (label or f"PLAN {sheet.plan}", mark, type_name, fck)
+                    for mark, type_name, fck in layout.beams.schedule(sheet.plan)
+                ]
+                schedule = {"title": "Framing Schedule (PRELIMINARY)", "rows": rows}
             template.add_sheet(
                 doc,
                 sheet.name,
@@ -198,6 +225,7 @@ def write_layout(
                 sheet.centre,
                 sheet.scale,
                 extent=(sheet.extent[2] - sheet.extent[0], sheet.extent[3] - sheet.extent[1]),
+                schedule=schedule,
             )
         if "Layout1" in doc.layouts:
             doc.layouts.delete("Layout1")

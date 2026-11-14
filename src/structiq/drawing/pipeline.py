@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import logging
 import re
 import sys
@@ -28,6 +29,7 @@ import ezdxf
 import yaml
 
 from structiq.drawing import convert, layout, paths
+from structiq.framing.rules import RulesNotApprovedError, load_rules
 
 CONFIG_FILE = Path(__file__).resolve().parents[3] / "config" / "paths.yaml"
 SAFETY_RULES = Path("03-Safety Rules") / "safety-rules.md"
@@ -92,20 +94,31 @@ def run(
     out_dir: str | Path | None = None,
     brain_dir: str | Path | None = None,
     issue_date: datetime.date | None = None,
+    plan_names: dict[int, str] | None = None,
+    beams: bool = True,
 ) -> PipelineResult:
+    """Run the whole flow. ``plan_names`` names the floors (plan number to label);
+    ``beams=False`` skips the beam arrangement."""
     src = Path(source).resolve()
     if not src.is_file():
         raise FileNotFoundError(f"Drawing not found: {src}")
     if src.suffix.lower() not in (".dwg", ".dxf"):
         raise ValueError(f"Expected a .dwg or .dxf file: {src}")
 
-    _, brain_version = read_brain(brain_dir)  # stop before any work if the brain is unreadable
+    brain, brain_version = read_brain(brain_dir)  # stop before any work if the brain is unreadable
+
+    beam_rules, beam_note = None, None
+    if beams:
+        try:
+            beam_rules = load_rules(brain)
+        except RulesNotApprovedError as err:  # not fatal: the layout is still useful
+            beam_note = f"BEAMS: not arranged. {err}"
 
     target = Path(out_dir) if out_dir else paths.project_output_dir(src)
     target.mkdir(parents=True, exist_ok=True)
 
     dxf_in = convert.dwg_to_dxf(src) if src.suffix.lower() == ".dwg" else src
-    lay = layout.extract_layout(ezdxf.readfile(dxf_in), rc_layer_pattern)
+    lay = layout.extract_layout(ezdxf.readfile(dxf_in), rc_layer_pattern, beam_rules)
 
     rev = next_revision(target, src.stem)
     dxf_out = target / f"S-LAYOUT {src.stem} Rev {rev:02d}.dxf"
@@ -113,9 +126,11 @@ def run(
     sheets = layout.plan_sheets(lay)
     fields = sheet_fields(src, rev, issue_date or datetime.date.today())
     text = layout.format_layout_report(
-        lay, source=src.name, brain_version=brain_version, sheets=sheets
+        lay, source=src.name, brain_version=brain_version, sheets=sheets, plan_names=plan_names
     )
-    layout.write_layout(lay, dxf_out, fields, sheets)
+    if beam_note:
+        text += "\n\n" + beam_note
+    layout.write_layout(lay, dxf_out, fields, sheets, plan_names)
     report_out.write_text(text + "\n", encoding="utf-8")
     return PipelineResult(dxf_out, report_out, rev, brain_version, text)
 
@@ -126,9 +141,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("drawing", help="architect drawing (.dwg or .dxf)")
     parser.add_argument("--rc-layers", help="regex for layer names that hold RC walls")
     parser.add_argument("--out-dir", help="output folder (default: <project>\\02-Structural Drawing)")
+    parser.add_argument(
+        "--plan-names",
+        help='JSON file naming the floors, e.g. {"3": "1F-2F", "4": "3F-5F"} (plan number: label)',
+    )
+    parser.add_argument("--no-beams", action="store_true", help="do not arrange beams")
     ns = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    names = None
+    if ns.plan_names:
+        names = {int(k): str(v) for k, v in json.loads(Path(ns.plan_names).read_text("utf-8")).items()}
     try:
-        result = run(ns.drawing, rc_layer_pattern=ns.rc_layers, out_dir=ns.out_dir)
+        result = run(
+            ns.drawing,
+            rc_layer_pattern=ns.rc_layers,
+            out_dir=ns.out_dir,
+            plan_names=names,
+            beams=not ns.no_beams,
+        )
     except BrainNotFoundError as err:
         print(f"STOPPED: {err}")
         return 3

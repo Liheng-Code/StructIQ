@@ -51,6 +51,23 @@ From `D:\Dev\StructIQ`:
 | Stairs | `S-OPEN` (footprint as an opening), `S-OPEN-X` (dashed green X), `S-STAIR-TXT` | stacked tread rectangles; flights, tread depth and footprint are in the report, the flights are not drawn |
 | Lift cores | `S-WALL` (core wall), `S-WALL-HATCH` (solid grey fill), `S-OPEN` (clear shaft), `S-OPEN-X` (dashed green X in the shaft and in each door gap), `S-OPEN-TXT` | block holding a lift car symbol on an ELEVATOR/LIFT layer; the wall body outline in it is the RC core |
 
+| RC beams + PT bands | `S-BEAM`, `S-BEAM-PT` (marked only), `S-BEAM-TXT`, framing schedule on each sheet | arranged from the engineer's approved rules (Core Brain `02-Engineering Principles/beam-rules.yaml`, explained in `04-beam-arrangement.md`) on the extracted columns, slab outline, stair, lift and shafts |
+
+## Beams
+
+- Beams are proposed only when `beam-rules.yaml` says `status: approved`; otherwise the report says
+  "BEAMS: not arranged" and the rest of the layout is still written. `--no-beams` skips them.
+- The sizes (RCB1 400x500 edge, RCB3 300x500 interior, RCB5 200x500 stair and balcony edge) are the
+  engineer's preliminary sizes. They are not a calculation or a check: never call them a design.
+- PT bands are only marked (PTB1 2400x500, PTB3 2600x500); they are not designed.
+- Name the floors with `--plan-names plans.json` (`{"5": "4F-6F"}`): plan numbers follow the order found
+  and are not floor levels. Do not guess a name; let the engineer decide.
+- Check an arrangement against the engineer's own design with
+  `python -m structiq.framing.compare "<converted.dxf>" "<beam-observations.json>"`; it compares every plan
+  with every sample sheet and prints the best matches and what differs.
+- Plans with no slab outline are not arranged (flagged). Ground floor, 7F and roof follow different
+  arrangements in the sample and are not special-cased yet.
+
 All text in the output is Arial (`STIQ-TEXT`) at 1.5 mm at A3: model-space height = 1.5 x the
 plan's sheet scale. Gridlines are trimmed to 2.5 m beyond the outermost crossing gridline so
 each plan fits its sheet at a standard scale.

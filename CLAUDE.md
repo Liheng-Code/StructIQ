@@ -37,6 +37,11 @@ Architect drawings are read with the `drawing-intelligence` skill
 Only RC walls are drawn; brick walls are counted in the report. Each run writes the
 next `Rev NN` and never overwrites an earlier one.
 
+Beams (`src/structiq/framing/`): `learn.py` measures the engineer's sample design, `rules.py` loads
+the approved rules from the Core Brain (`beam-rules.yaml`), `arrange.py` proposes beams per plan,
+`draw.py` draws them, `compare.py` checks them against the sample. Sizes are preliminary and are
+never a design check; PT bands are only marked.
+
 ## Where things live
 
 - Code: this repository (`src/structiq`, `tests`, `.claude`, `apps`).

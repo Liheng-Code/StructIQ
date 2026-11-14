@@ -121,6 +121,9 @@ LAYERS = {
     "S-SLAB-CHECK": (DARK_RED, "Continuous", 13, "Slab items to review"),
     "S-SLAB-TXT": (BLACK, "Continuous", 13, "Slab labels"),
     "S-BEAM": (BROWN, "STIQ-DOT", 13, "Beams below (dotted)"),
+    "S-BEAM-PT": (BROWN, "STIQ-DOT", 13, "PT bands (dotted, marked only)"),
+    "S-BEAM-TXT": (BLACK, "Continuous", 13, "Beam tags"),
+    "S-ANNO-TABLE": (BLACK, "Continuous", 13, "Schedule tables"),
     "S-OPEN": (BLUE, "STIQ-DOT", 13, "Shafts and slab openings (dotted)"),
     "S-OPEN-ROOM": (BLUE, "Continuous", 9, "Rooms next to openings"),
     "S-OPEN-CHECK": (DARK_RED, "Continuous", 13, "Openings to review"),
@@ -402,6 +405,7 @@ def add_sheet(
     view_center: tuple[float, float],
     scale: int,
     extent: tuple[float, float] | None = None,
+    schedule: dict | None = None,
 ):
     """Add an A3 layout with the title block filled from ``fields`` and one viewport.
 
@@ -409,7 +413,9 @@ def add_sheet(
     missing are left blank. The viewport shows model space at 1:``scale`` centred on
     ``view_center``. With ``extent`` = (width, height) in model units the viewport is
     cut to just that box (so neighbouring plans in model space stay out of the sheet);
-    without it the viewport fills the whole drawing area.
+    without it the viewport fills the whole drawing area. ``schedule`` =
+    {"title": str, "rows": [(level, mark, type, fck), ...]} adds a framing schedule table
+    above the general notes (see ``add_schedule_table``).
     """
     add_sheet_blocks(doc)
     layout = doc.layouts.new(name)
@@ -439,10 +445,55 @@ def add_sheet(
         status=2,  # 1 is the layout's own main viewport (created by page_setup)
         dxfattribs={"layer": "S-VPORT"},
     )
+    if schedule and schedule.get("rows"):
+        add_schedule_table(layout, schedule["title"], schedule["rows"])
     # page_setup made the main viewport fit the paper (1:1), which is what AutoCAD uses
     # for the first display of the sheet. Give the layout real extents as well.
     layout.reset_extents(extmin=(0.0, 0.0, 0.0), extmax=(SHEET_W, SHEET_H, 0.0))
     return layout
+
+
+SCHEDULE_COLS = (10.0, 12.0, 32.0, 16.0)  # Level, Mark, Type, Fck (mm at A3)
+SCHEDULE_ROW = 3.4
+SCHEDULE_X = 332.4  # left edge, same as the general notes
+SCHEDULE_BOTTOM = 37.0  # paper y of the table bottom, just above the notes
+
+
+def add_schedule_table(layout, title: str, rows: list[tuple[str, str, str, str]]) -> None:
+    """Framing schedule like the sample: title row, header row (Level, Mark, Type, Fck), rows."""
+    widths = SCHEDULE_COLS
+    total_w = sum(widths)
+    n = len(rows)
+    height = SCHEDULE_ROW * (n + 2) + 1.6  # title row is a little taller
+    x0, y0 = SCHEDULE_X, SCHEDULE_BOTTOM
+    top = y0 + height
+    attrs = {"layer": "S-ANNO-TABLE"}
+    text_attrs = {"layer": "S-ANNO-TEXT", "style": "STIQ-TEXT"}
+    layout.add_lwpolyline(
+        [(x0, y0), (x0 + total_w, y0), (x0 + total_w, top), (x0, top)], close=True, dxfattribs=attrs
+    )
+    title_y = top - (SCHEDULE_ROW + 1.6)
+    layout.add_line((x0, title_y), (x0 + total_w, title_y), dxfattribs=attrs)
+    layout.add_text(title, height=TEXT_HEIGHT, dxfattribs=text_attrs).set_placement(
+        (x0 + total_w / 2, top - (SCHEDULE_ROW + 1.6) / 2), align=TextEntityAlignment.MIDDLE_CENTER
+    )
+    header_y = title_y - SCHEDULE_ROW
+    layout.add_line((x0, header_y), (x0 + total_w, header_y), dxfattribs=attrs)
+    xs = [x0]
+    for w in widths:
+        xs.append(xs[-1] + w)
+    for x in xs[1:-1]:
+        layout.add_line((x, y0), (x, title_y), dxfattribs=attrs)
+    for i, label in enumerate(("Level", "Mark", "Type", "Fck (MPa)")):
+        layout.add_text(label, height=TEXT_HEIGHT, dxfattribs=text_attrs).set_placement(
+            ((xs[i] + xs[i + 1]) / 2, title_y - SCHEDULE_ROW / 2), align=TextEntityAlignment.MIDDLE_CENTER
+        )
+    for r, row in enumerate(rows):
+        y = header_y - SCHEDULE_ROW * (r + 0.5)
+        for i, cell in enumerate(row):
+            align = TextEntityAlignment.MIDDLE_LEFT if i == 2 else TextEntityAlignment.MIDDLE_CENTER
+            px = xs[i] + 1.0 if i == 2 else (xs[i] + xs[i + 1]) / 2
+            layout.add_text(cell, height=TEXT_HEIGHT, dxfattribs=text_attrs).set_placement((px, y), align=align)
 
 
 def open_on_sheet(doc, name: str) -> None:
