@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "structiq"
+version = "0.1.0"
+description = "AI-powered structural engineering assistant"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "scipy",
+    "sympy",
+    "pydantic>=2",
+    "pint",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/structiq"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

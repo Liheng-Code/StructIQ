@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# Node
+node_modules/
+.next/
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+config/paths.yaml
+
+# Never commit standards or client project data
+knowledge-cache/
+projects/
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.vscode/

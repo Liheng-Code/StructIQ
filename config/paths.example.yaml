@@ -1,0 +1,10 @@
+# Copy to config/paths.yaml (git-ignored) and adjust for this machine.
+
+docs: 'G:\My Drive\04-Systems Development\06-StructIQ\docs'
+
+knowledge:
+  reference_library: 'G:\My Drive\02-Engineering Knowledge\00-Reference Library'
+  structural_design: 'G:\My Drive\02-Engineering Knowledge\01-Structural Design'
+  construction_documents: 'G:\My Drive\02-Engineering Knowledge\06-Construction Documents'
+
+projects: 'G:\My Drive\01-Projects'
