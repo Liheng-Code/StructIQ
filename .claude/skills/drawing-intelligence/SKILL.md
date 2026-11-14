@@ -47,7 +47,7 @@ From `D:\Dev\StructIQ`:
 | Columns | `S-COLS`, `S-COLS-TXT` | blocks of simple geometry with a solid hatch, column-sized; related to the grid |
 | RC walls | `S-WALL` | wall layers matching the RC pattern. **Brick walls are counted, not drawn.** |
 | Slab boundary | `S-SLAB-EDGE`, `S-SLAB-CHECK`, `S-SLAB-TXT` | outline polylines on the slab layer, area, grid coverage |
-| MEP shafts | `S-OPEN`, `S-OPEN-ROOM`, `S-OPEN-CHECK`, `S-OPEN-TXT` | text labels enclosed by walls/columns |
+| MEP shafts | `S-OPEN` + `S-OPEN-X` (dashed green X), `S-OPEN-ROOM` (rooms, no X), `S-OPEN-CHECK`, `S-OPEN-TXT` | text labels enclosed by walls/columns |
 | Stairs | `S-OPEN` (footprint as an opening), `S-OPEN-X` (dashed green X), `S-STAIR-TXT` | stacked tread rectangles; flights, tread depth and footprint are in the report, the flights are not drawn |
 | Lift cores | `S-WALL` (core wall), `S-WALL-HATCH` (solid grey fill), `S-OPEN` (clear shaft), `S-OPEN-X` (dashed green X in the shaft and in each door gap), `S-OPEN-TXT` | block holding a lift car symbol on an ELEVATOR/LIFT layer; the wall body outline in it is the RC core |
 

@@ -174,6 +174,26 @@ def test_stair_is_drawn_as_an_opening_with_a_green_x_and_no_flight_rectangles(tm
     assert [t.dxf.text for t in msp.query("TEXT[layer=='S-STAIR-TXT']")] == ["STAIR 2F x 12T"]
 
 
+def test_bounded_shafts_get_a_green_x_but_rooms_and_label_only_do_not(tmp_path):
+    doc = _base_doc()
+    msp = doc.modelspace()
+    msp.add_mtext("MEP", dxfattribs={"insert": (2000, 3500), "attachment_point": 5})  # bounded
+    msp.add_mtext("MEP ROOM", dxfattribs={"insert": (8000, 3500), "attachment_point": 5})  # room
+    msp.add_mtext("PLUMBING", dxfattribs={"insert": (6000, 6500)})  # no boundary: label only
+    boxes = _box_walls(1000, 3000, 3000, 4000) + _box_walls(7000, 3000, 9000, 4000)
+    g, s = _pipeline(doc)
+    res = openings.extract_openings(
+        doc, g, walls.WallResult(boxes), columns.ColumnResult([], {}, 0), s
+    )
+    out = ezdxf.new("R2018")
+    openings.add_openings(out, res)
+    drawn = out.modelspace()
+    assert len(drawn.query("LINE[layer=='S-OPEN-X']")) == 2  # only the bounded shaft
+    assert len(drawn.query("LWPOLYLINE[layer=='S-OPEN']")) == 1
+    assert len(drawn.query("LWPOLYLINE[layer=='S-OPEN-ROOM']")) == 1  # the room, no X
+    assert len(drawn.query("CIRCLE[layer=='S-OPEN-CHECK']")) == 1  # the unbounded label
+
+
 def test_layout_writes_stair_and_opening_layers(tmp_path):
     doc = _base_doc()
     _stair_block(doc)

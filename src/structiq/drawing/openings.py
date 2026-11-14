@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from structiq.drawing import columns, grids, slabs, walls
+from structiq.drawing import columns, grids, slabs, template, walls
 
 LABEL_PATTERN = r"\b(MEP|PLUMBING|SHAFT|DUCT|RISER|VOID)\b"
 MAX_RAY = 8000.0  # mm: farthest wall a ray may hit
@@ -166,18 +166,12 @@ def format_openings_report(result: OpeningResult) -> str:
 
 
 def add_openings(doc, result: OpeningResult, text_height=None) -> None:
-    """Bounded cells on S-OPEN (shafts) or S-OPEN-ROOM; label-only on S-OPEN-CHECK.
+    """Bounded shaft cells on S-OPEN with a dashed green X (S-OPEN-X); rooms on S-OPEN-ROOM
+    (no X, they are not openings); label-only on S-OPEN-CHECK.
 
     ``text_height(plan)`` gives the label height (Arial, STIQ-TEXT); default 150 mm.
     """
-    for name, color in (
-        ("S-OPEN", 30),
-        ("S-OPEN-ROOM", 8),
-        ("S-OPEN-CHECK", 6),
-        ("S-OPEN-TXT", 2),
-    ):
-        if name not in doc.layers:
-            doc.layers.add(name, color=color)
+    template.define_styles(doc)
     msp = doc.modelspace()
     for o in result.openings:
         if o.rect:
@@ -186,6 +180,9 @@ def add_openings(doc, result: OpeningResult, text_height=None) -> None:
             msp.add_lwpolyline(
                 [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": layer}
             )
+            if o.kind == "shaft":
+                msp.add_line((x0, y0), (x1, y1), dxfattribs={"layer": "S-OPEN-X"})
+                msp.add_line((x0, y1), (x1, y0), dxfattribs={"layer": "S-OPEN-X"})
         else:
             msp.add_circle((o.x, o.y), 200, dxfattribs={"layer": "S-OPEN-CHECK"})
         msp.add_text(
