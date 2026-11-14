@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 from ezdxf.math import Vec3
 
-from structiq.drawing import grids, slabs
+from structiq.drawing import grids, slabs, template
 
 MIN_TREADS = 5
 DEPTH_RANGE = (150.0, 400.0)  # tread depth, mm
@@ -191,7 +191,10 @@ def extract_stairs(doc, grid_result: grids.GridResult, slab_result: slabs.SlabRe
 
 
 def format_stairs_report(result: StairResult) -> str:
-    out = ["STAIRS (detected from stacked tread rectangles; confirm against the drawing)"]
+    out = [
+        "STAIRS (detected from stacked tread rectangles; the stair footprint is drawn as an "
+        "opening with an X, the flights are listed here only. Confirm against the drawing)"
+    ]
     for s in result.stairs:
         w, h = s.footprint[2] - s.footprint[0], s.footprint[3] - s.footprint[1]
         bay = f"bay {s.bay[0]} / {s.bay[1]}" if s.bay else "outside the grid bays"
@@ -217,24 +220,21 @@ def format_stairs_report(result: StairResult) -> str:
 
 
 def add_stairs(doc, result: StairResult, text_height=None) -> None:
-    """Add flights and footprints on S-STAIR, labels on S-STAIR-TXT.
+    """Draw each stair as an opening: its footprint on S-OPEN with a dashed green X.
 
-    ``text_height(plan)`` gives the label height (Arial, STIQ-TEXT); default 250 mm.
+    The individual flights are listed in the report but not drawn. The label goes on
+    S-STAIR-TXT. ``text_height(plan)`` gives the label height (Arial, STIQ-TEXT); default
+    250 mm.
     """
-    for name, color in (("S-STAIR", 150), ("S-STAIR-TXT", 2)):
-        if name not in doc.layers:
-            doc.layers.add(name, color=color)
+    template.define_styles(doc)
     msp = doc.modelspace()
     for s in result.stairs:
         x0, y0, x1, y1 = s.footprint
         msp.add_lwpolyline(
-            [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "S-STAIR"}
+            [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "S-OPEN"}
         )
-        for f in s.flights:
-            a, b, c, d = f.bbox
-            msp.add_lwpolyline(
-                [(a, b), (c, b), (c, d), (a, d)], close=True, dxfattribs={"layer": "S-STAIR"}
-            )
+        msp.add_line((x0, y0), (x1, y1), dxfattribs={"layer": "S-OPEN-X"})
+        msp.add_line((x0, y1), (x1, y0), dxfattribs={"layer": "S-OPEN-X"})
         msp.add_text(
             f"STAIR {len(s.flights)}F x {s.flights[0].treads}T",
             height=text_height(s.plan) if text_height else 250,

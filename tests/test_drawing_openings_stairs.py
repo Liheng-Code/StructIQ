@@ -162,6 +162,18 @@ def test_room_label_is_a_room_not_an_opening():
     assert "no void drawn" not in openings.format_openings_report(r)
 
 
+def test_stair_is_drawn_as_an_opening_with_a_green_x_and_no_flight_rectangles(tmp_path):
+    doc = _base_doc()
+    _stair_block(doc)
+    doc.modelspace().add_blockref("STAIRBLK", (1000, 2000), dxfattribs={"layer": "0"})
+    out = layout.write_layout(layout.extract_layout(doc), tmp_path / "l.dxf")
+    msp = ezdxf.readfile(out).modelspace()
+    assert len(msp.query("LWPOLYLINE[layer=='S-STAIR']")) == 0  # flights are not drawn
+    assert len(msp.query("LWPOLYLINE[layer=='S-OPEN']")) == 1  # only the stair footprint
+    assert len(msp.query("LINE[layer=='S-OPEN-X']")) == 2  # the X across it
+    assert [t.dxf.text for t in msp.query("TEXT[layer=='S-STAIR-TXT']")] == ["STAIR 2F x 12T"]
+
+
 def test_layout_writes_stair_and_opening_layers(tmp_path):
     doc = _base_doc()
     _stair_block(doc)
