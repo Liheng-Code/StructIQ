@@ -5,6 +5,11 @@ import pytest
 from structiq.drawing import convert
 
 
+@pytest.fixture(autouse=True)
+def _work_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv("STRUCTIQ_WORK_DIR", str(tmp_path / "work"))
+
+
 def test_build_command_matches_oda_cli():
     cmd = convert.build_command(
         convert.Path("oda.exe"), convert.Path("in"), convert.Path("out"), "a.dwg"
@@ -32,7 +37,7 @@ def test_dwg_to_dxf_runs_converter_and_returns_dxf(tmp_path, monkeypatch):
 
     monkeypatch.setattr(convert.subprocess, "run", fake_run)
     dxf = convert.dwg_to_dxf(dwg, converter=exe)
-    assert dxf == tmp_path / "_dxf" / "plan.dxf"
+    assert dxf == tmp_path / "work" / "dxf" / "plan.dxf"
     assert dwg.read_bytes() == b"AC1018"  # source untouched
 
 

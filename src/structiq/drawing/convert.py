@@ -25,6 +25,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from structiq.drawing.paths import work_dir
+
 DEFAULT_VERSION = "ACAD2018"
 ODA_ENV_VAR = "ODA_FILE_CONVERTER"
 LIBREDWG_ENV_VAR = "LIBREDWG_DWG2DXF"
@@ -110,7 +112,8 @@ def dwg_to_dxf(
 ) -> Path:
     """Convert one DWG file to DXF and return the DXF path.
 
-    The DXF is written to ``out_dir`` (default: a ``_dxf`` folder beside the DWG).
+    The DXF is written to ``out_dir`` (default: ``<work dir>\\dxf``, a local cache
+    that is never on Google Drive; see ``paths.py``).
     """
     source = Path(dwg).resolve()
     if not source.is_file():
@@ -118,7 +121,7 @@ def dwg_to_dxf(
     if source.suffix.lower() != ".dwg":
         raise ValueError(f"Not a DWG file: {source}")
 
-    target_dir = Path(out_dir).resolve() if out_dir else source.parent / "_dxf"
+    target_dir = Path(out_dir).resolve() if out_dir else work_dir() / "dxf"
     target_dir.mkdir(parents=True, exist_ok=True)
     dxf = target_dir / f"{source.stem}.dxf"
 
