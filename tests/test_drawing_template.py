@@ -38,6 +38,7 @@ def test_linetype_patterns_match_the_sample(doc):
     assert _elements(doc, "STIQ-GRID") == [6.0, -1.0, 1.0, -1.0]
     assert _elements(doc, "STIQ-SECTION") == [2.0, -0.6, 0.6, -0.6]
     assert _elements(doc, "STIQ-DOT") == [0.6, -0.6]
+    assert _elements(doc, "STIQ-OPENING") == [0.75, -0.75]
 
 
 def test_layers_carry_sample_colours_and_linetypes(doc):

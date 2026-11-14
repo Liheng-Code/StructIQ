@@ -20,7 +20,7 @@ the report says if the shaft centre lies inside the slab outline.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ezdxf import bbox
 from ezdxf.math import Vec3
@@ -46,6 +46,7 @@ class Lift:
     near_ref: str  # nearest grid intersection, e.g. "A3"
     bay: tuple[str, str] | None
     inside_slab: bool | None  # None = the plan has no slab outline
+    doors: list[tuple[float, float, float, float]] = field(default_factory=list)  # gaps in the core
 
 
 @dataclass
@@ -85,6 +86,37 @@ def _cavity(points):
     gaps = sorted([cx0 - x0, x1 - cx1, cy0 - y0, y1 - cy1])
     thickness = (gaps[1] + gaps[2]) / 2  # median of the four sides
     return (cx0, cy0, cx1, cy1), thickness
+
+
+def _doors(points):
+    """Gaps in the core wall: the box between each pair of jamb edges.
+
+    A jamb edge joins a vertex on the outline's outer box to an inner vertex. In outline
+    order a gap is a "boundary -> inner" edge followed later by an "inner -> boundary"
+    edge; the four points of such a pair bound the gap.
+    """
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+
+    def on_outer(p):
+        return any(abs(p[0] - v) <= EDGE_TOL for v in (x0, x1)) or any(
+            abs(p[1] - v) <= EDGE_TOL for v in (y0, y1)
+        )
+
+    n = len(points)
+    flags = [on_outer(p) for p in points]
+    doors = []
+    if all(flags) or not any(flags):
+        return doors
+    for i in range(n):
+        if flags[i] and not flags[(i + 1) % n]:  # boundary -> inner: a jamb starts a gap
+            j = (i + 1) % n
+            while not flags[(j + 1) % n]:  # walk the run of inner vertices to its last one
+                j = (j + 1) % n
+            pts = [points[i], points[(i + 1) % n], points[j], points[(j + 1) % n]]
+            gx, gy = [p[0] for p in pts], [p[1] for p in pts]
+            doors.append((min(gx), min(gy), max(gx), max(gy)))
+    return doors
 
 
 def extract_lifts(
@@ -152,7 +184,18 @@ def extract_lifts(
         h = min(plan.horizontal, key=lambda ln: abs(ln.position - cy), default=None)
         ref = f"{(v.label or '?') if v else '?'}{(h.label or '?') if h else '?'}"
         result.lifts.append(
-            Lift(plan.index, name, core, outer, cavity, thickness, ref, grids.grid_bay(plan, cx, cy), inside)
+            Lift(
+                plan.index,
+                name,
+                core,
+                outer,
+                cavity,
+                thickness,
+                ref,
+                grids.grid_bay(plan, cx, cy),
+                inside,
+                doors=_doors(core),
+            )
         )
     result.lifts.sort(key=lambda lift: (lift.plan, lift.outer[0], lift.outer[1]))
     return result
@@ -175,6 +218,9 @@ def format_lifts_report(result: LiftResult) -> str:
             )
         else:
             out.append("  ! core outline is not a simple box: thickness and clear shaft not computed")
+        for door in lift.doors:
+            width = max(door[2] - door[0], door[3] - door[1])
+            out.append(f"  door opening {width:.0f} mm wide in the core wall (drawn with an X)")
         if lift.inside_slab is None:
             out.append("  Slab: this plan has no slab outline to compare with.")
         elif lift.inside_slab:
@@ -196,16 +242,31 @@ def format_lifts_report(result: LiftResult) -> str:
 
 
 def add_lifts(doc, result: LiftResult, text_height=None) -> None:
-    """RC core wall on S-WALL, clear shaft on S-OPEN, label LIFT on S-OPEN-TXT."""
+    """Draw lift cores as in the sample structural drawing.
+
+    Core wall outline on S-WALL with a solid grey fill on S-WALL-HATCH; the clear shaft on
+    S-OPEN with a dashed green X (S-OPEN-X); each door gap in the core also gets an X;
+    label LIFT on S-OPEN-TXT.
+    """
     template.define_styles(doc)
     msp = doc.modelspace()
+
+    def cross(x0, y0, x1, y1):
+        msp.add_line((x0, y0), (x1, y1), dxfattribs={"layer": "S-OPEN-X"})
+        msp.add_line((x0, y1), (x1, y0), dxfattribs={"layer": "S-OPEN-X"})
+
     for lift in result.lifts:
         msp.add_lwpolyline(lift.core, close=True, dxfattribs={"layer": "S-WALL"})
+        hatch = msp.add_hatch(color=256, dxfattribs={"layer": "S-WALL-HATCH"})
+        hatch.paths.add_polyline_path(lift.core, is_closed=True)
+        for door in lift.doors:
+            cross(*door)
         if lift.cavity:
             x0, y0, x1, y1 = lift.cavity
             msp.add_lwpolyline(
                 [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "S-OPEN"}
             )
+            cross(x0, y0, x1, y1)
             msp.add_text(
                 "LIFT",
                 height=text_height(lift.plan) if text_height else 250,

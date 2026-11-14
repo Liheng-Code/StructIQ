@@ -93,12 +93,14 @@ DARK_RED = (128, 0, 0)  # section lines, #800000
 BROWN = (128, 64, 0)  # beams below / hidden, #804000
 BLUE = (0, 128, 255)  # stair and lift openings, #0080ff
 OLIVE = (128, 128, 0)  # level marks, #808000
+LIME = (0, 255, 0)  # opening cross lines, #00ff00
 
 # Linetypes: patterns in paper mm (dash +, gap -). Keep LTSCALE = 1 and PSLTSCALE = 1.
 LINETYPES = {
     "STIQ-GRID": ("Grid: dash 6, gap 1, dot 1, gap 1", [9.0, 6.0, -1.0, 1.0, -1.0]),
     "STIQ-SECTION": ("Section line: dash 2, gap 0.6, dot 0.6, gap 0.6", [3.8, 2.0, -0.6, 0.6, -0.6]),
     "STIQ-DOT": ("Hidden / below: 0.6 on, 0.6 off", [1.2, 0.6, -0.6]),
+    "STIQ-OPENING": ("Opening cross: 0.75 on, 0.75 off", [1.5, 0.75, -0.75]),
 }
 
 # name: (rgb, linetype, proposed lineweight in 1/100 mm, description)
@@ -113,6 +115,8 @@ LAYERS = {
     "S-COLS-HATCH": (GREY, "Continuous", 9, "Column fill"),
     "S-COLS-TXT": (BLACK, "Continuous", 13, "Column tags"),
     "S-WALL": (BLACK, "Continuous", 35, "RC walls"),
+    "S-WALL-HATCH": (GREY, "Continuous", 9, "RC wall fill (solid grey)"),
+    "S-OPEN-X": (LIME, "STIQ-OPENING", 13, "Opening cross lines (X) in shafts and wall openings"),
     "S-SLAB-EDGE": (BLACK, "Continuous", 35, "Slab outline"),
     "S-SLAB-CHECK": (DARK_RED, "Continuous", 13, "Slab items to review"),
     "S-SLAB-TXT": (BLACK, "Continuous", 13, "Slab labels"),
@@ -147,7 +151,9 @@ def text_height_for(scales: dict[int, int]):
 
 
 def _aci_for(rgb) -> int:
-    return {BLACK: 7, MAROON: 1, GREY: 8, TEAL: 4, DARK_RED: 1, BROWN: 30, BLUE: 5, OLIVE: 62}[rgb]
+    return {
+        BLACK: 7, MAROON: 1, GREY: 8, TEAL: 4, DARK_RED: 1, BROWN: 30, BLUE: 5, OLIVE: 62, LIME: 3
+    }[rgb]
 
 
 def define_styles(doc) -> None:

@@ -64,6 +64,15 @@ def test_core_wall_body_cavity_and_thickness():
     assert round(lift.outer[2] - lift.outer[0]) == 2200
 
 
+def test_door_gap_in_the_core_wall_is_found():
+    _, _, r = _lifts(_doc())
+    (lift,) = r.lifts
+    (door,) = lift.doors
+    # 200 mm through the wall (x 2000..2200 from the corner) and 1040 mm wide (y 575..1615)
+    assert (round(door[2] - door[0]), round(door[3] - door[1])) == (200, 1040)
+    assert "door opening 1040 mm wide" in lifts.format_lifts_report(r)
+
+
 def test_lift_is_related_to_the_grid_and_slab():
     _, _, r = _lifts(_doc())
     (lift,) = r.lifts
@@ -96,3 +105,18 @@ def test_report_and_drawing_of_the_core(tmp_path):
     assert len(msp.query("LWPOLYLINE[layer=='S-OPEN']")) == 1  # the clear shaft
     label = [t for t in msp.query("TEXT") if t.dxf.text == "LIFT"]
     assert len(label) == 1 and label[0].dxf.style == "STIQ-TEXT"
+
+
+def test_core_wall_is_hatched_grey_and_openings_get_a_dashed_green_x(tmp_path):
+    out = layout.write_layout(layout.extract_layout(_doc()), tmp_path / "l.dxf")
+    doc = ezdxf.readfile(out)
+    msp = doc.modelspace()
+    hatches = list(msp.query("HATCH[layer=='S-WALL-HATCH']"))
+    assert len(hatches) == 1 and hatches[0].dxf.solid_fill == 1
+    # the fill lives on a grey layer and follows it (ByLayer)
+    assert doc.layers.get("S-WALL-HATCH").rgb == (192, 192, 192) and hatches[0].dxf.color == 256
+    # one X in the clear shaft and one in the door gap: 4 diagonal lines
+    crosses = list(msp.query("LINE[layer=='S-OPEN-X']"))
+    assert len(crosses) == 4
+    layer = doc.layers.get("S-OPEN-X")
+    assert layer.rgb == (0, 255, 0) and layer.dxf.linetype == "STIQ-OPENING"
