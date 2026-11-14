@@ -196,6 +196,14 @@ def write_layout_dxf(
 ) -> Path:
     """Write grid + columns on structural layers (S-GRID, S-GRID-TXT, S-COLS, S-COLS-TXT)."""
     doc = grids.build_grid_doc(grid_result)
+    add_columns(doc, col_result)
+    out = Path(path)
+    doc.saveas(out)
+    return out
+
+
+def add_columns(doc, col_result: ColumnResult) -> None:
+    """Add the S-COLS / S-COLS-TXT layers and column shapes to ``doc``."""
     doc.layers.add("S-COLS", color=3)
     doc.layers.add("S-COLS-TXT", color=2)
     msp = doc.modelspace()
@@ -211,9 +219,6 @@ def write_layout_dxf(
             height=200,
             dxfattribs={"layer": "S-COLS-TXT", "insert": (x1 + 100, y1 + 100)},
         )
-    out = Path(path)
-    doc.saveas(out)
-    return out
 
 
 def main(argv: list[str] | None = None) -> int:
