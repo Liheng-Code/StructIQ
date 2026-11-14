@@ -230,8 +230,12 @@ def format_report(result: GridResult, unit: str = "mm", source: str | None = Non
     return "\n".join(out)
 
 
-def build_grid_doc(result: GridResult, text_height: float = 350.0):
-    """New DXF document holding only the structural grid (S-GRID, S-GRID-TXT)."""
+def build_grid_doc(result: GridResult, text_height: float = 350.0, labels: str = "text"):
+    """New DXF document holding only the structural grid (S-GRID, S-GRID-TXT).
+
+    ``labels="text"`` writes plain text labels; ``"none"`` leaves labels to the caller
+    (the layout draws scaled STIQ-GRID-BUBBLE blocks instead).
+    """
     doc = ezdxf.new("R2018", setup=True)
     template.define_styles(doc)  # StructIQ layers, linetypes and text styles (units: mm)
     msp = doc.modelspace()
@@ -244,7 +248,7 @@ def build_grid_doc(result: GridResult, text_height: float = 350.0):
                 a, b = (ln.start, ln.position), (ln.end, ln.position)
                 tp = (ln.start - 2 * text_height, ln.position)
             msp.add_line(a, b, dxfattribs={"layer": "S-GRID"})
-            if ln.label:
+            if ln.label and labels == "text":
                 msp.add_text(
                     ln.label, height=text_height, dxfattribs={"layer": "S-GRID-TXT", "insert": tp}
                 )

@@ -33,6 +33,11 @@ From `D:\Dev\StructIQ`:
   matching `STRUCT|RC|SHEAR|CONCRETE WALL` count as RC.
 - Each run writes the **next revision**: `S-LAYOUT <name> Rev NN.dxf` and
   `...Rev NN-report.txt`. Existing revisions are never overwritten.
+- Each plan is also placed on its own A3 sheet (layout tabs `A3-PLAN-1`, `A3-PLAN-2`...) from
+  the StructIQ template: title block filled (project reference from the `PJR-` folder name,
+  revision R00.., issue date, stage DRAFT FOR REVIEW, scale fitted to the plan), grid
+  bubbles, general notes. Drawing numbers and client are left blank on purpose. Plan
+  numbers follow the order found, not floor levels; tell the engineer to name them.
 
 ## What it extracts
 

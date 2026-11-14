@@ -1,3 +1,5 @@
+import datetime
+
 import ezdxf
 import pytest
 
@@ -78,6 +80,49 @@ def test_pipeline_writes_next_revision_each_run_and_never_overwrites(tmp_path):
     ]
     assert "Core Brain version: 1.2.3" in first.report_text
     assert first.report_text.splitlines()[0].startswith("DRAFT")
+
+
+def _title_values(sheet):
+    (tb,) = [i for i in sheet.query("INSERT") if i.dxf.name == "STIQ-TITLEBLOCK"]
+    return {a.dxf.tag: a.dxf.text for a in tb.attribs}
+
+
+def test_each_plan_gets_an_a3_sheet_with_the_title_block_filled(tmp_path):
+    src = _project_dxf(tmp_path, _doc())
+    result = pipeline.run(src, brain_dir=_brain(tmp_path), issue_date=datetime.date(2026, 11, 14))
+    doc = ezdxf.readfile(result.dxf)
+    assert [l.name for l in doc.layouts if l.name != "Model"] == ["A3-PLAN-1"]
+    values = _title_values(doc.layouts.get("A3-PLAN-1"))
+    assert values["PROJ_REF"] == "PJR-2026-999"
+    assert values["REVISION"] == "R00"
+    assert values["ISSUE_DATE"] == "14-NOV-2026" and values["DRAWN_BY"] == "STRUCTIQ"
+    assert values["DRAWING_NAME"] == "STRUCTURAL LAYOUT PLAN 1"
+    assert values["STAGE"] == "DRAFT FOR REVIEW" and values["CLIENT"] == ""
+    assert values["SCALE"] == "1 : 75"  # 19 x 15 m with a 2 m margin fits at 1:75
+    assert "SHEETS" in result.report_text and "A3-PLAN-1" in result.report_text
+
+
+def test_sheet_viewport_is_at_the_fitted_scale_and_grid_uses_scaled_bubbles(tmp_path):
+    src = _project_dxf(tmp_path, _doc())
+    doc = ezdxf.readfile(pipeline.run(src, brain_dir=_brain(tmp_path)).dxf)
+    # the layout's own main viewport (id 1) comes first; ours is the last one
+    vp = sorted(doc.layouts.get("A3-PLAN-1").query("VIEWPORT"), key=lambda v: v.dxf.id)[-1]
+    # the viewport is cut to the plan (19 x 15 m at 1:75), so other plans stay out of the sheet
+    assert (round(vp.dxf.width), round(vp.dxf.height)) == (253, 200)
+    assert round(vp.dxf.view_height) == 15000
+    bubbles = [i for i in doc.modelspace().query("INSERT") if i.dxf.name == "STIQ-GRID-BUBBLE"]
+    assert len(bubbles) == 5 and all(b.dxf.xscale == 75 for b in bubbles)
+    assert {a.dxf.text for b in bubbles for a in b.attribs} == {"A", "B", "C", "1", "2"}
+    assert len(doc.modelspace().query("TEXT[layer=='S-GRID-TXT']")) == 0
+
+
+def test_second_run_makes_second_revision_with_r01_in_the_title_block(tmp_path):
+    src = _project_dxf(tmp_path, _doc())
+    brain = _brain(tmp_path)
+    pipeline.run(src, brain_dir=brain)
+    second = pipeline.run(src, brain_dir=brain)
+    values = _title_values(ezdxf.readfile(second.dxf).layouts.get("A3-PLAN-1"))
+    assert values["REVISION"] == "R01"
 
 
 def test_pipeline_stops_when_brain_unreadable(tmp_path):

@@ -8,8 +8,10 @@ What the PDF could **not** give: lineweights. Every stroke in the export is 0.08
 (a "thin lines" export), so the lineweights below are proposals, not measurements.
 
 Paper-space rule: text is ``TEXT_HEIGHT`` = 1.5 mm *at A3* (the cap height of Arial
-6 pt). Model-space text, dimensions and linetypes are scaled by the viewport scale
-(see ``model_text_height``); the template defines one dimension style per scale.
+6 pt). Model-space text and dimensions are scaled by the viewport scale (see
+``model_text_height``); the template defines one dimension style per scale. Linetypes
+are defined in paper mm and, with LTSCALE = 1 and PSLTSCALE = 1 (both set here), print
+at that length in a viewport of any scale: do not change LTSCALE per viewport.
 
 ``define_styles(doc)`` adds the linetypes, text styles, dimension styles and layers
 to any document, so generated layouts use the same styles as the template.
@@ -92,7 +94,7 @@ BROWN = (128, 64, 0)  # beams below / hidden, #804000
 BLUE = (0, 128, 255)  # stair and lift openings, #0080ff
 OLIVE = (128, 128, 0)  # level marks, #808000
 
-# Linetypes: patterns in paper mm (dash +, gap -). Set LTSCALE to the viewport scale.
+# Linetypes: patterns in paper mm (dash +, gap -). Keep LTSCALE = 1 and PSLTSCALE = 1.
 LINETYPES = {
     "STIQ-GRID": ("Grid: dash 6, gap 1, dot 1, gap 1", [9.0, 6.0, -1.0, 1.0, -1.0]),
     "STIQ-SECTION": ("Section line: dash 2, gap 0.6, dot 0.6, gap 0.6", [3.8, 2.0, -0.6, 0.6, -0.6]),
@@ -346,18 +348,60 @@ def _symbols(doc) -> None:
                   ).set_placement((0, 0), align=TextEntityAlignment.MIDDLE_CENTER)
 
 
-def build_template():
-    """Return the full template document (model space empty; layout 'A3' ready to use)."""
-    doc = ezdxf.new("R2018", setup=False)
+def add_sheet_blocks(doc) -> None:
+    """Add the title block, note and annotation symbol blocks (idempotent)."""
     define_styles(doc)
+    if "STIQ-TITLEBLOCK" in doc.blocks:
+        return
     _title_block(doc)
     _notes(doc, "STIQ-GENERAL-NOTES", "NOTE:", GENERAL_NOTES, False, TEXT_HEIGHT)
     _notes(doc, "STIQ-NOTES-PILING", "NOTE IN PILING", PILING_NOTES, True, HEADING_HEIGHT)
     _symbols(doc)
 
-    layout = doc.layouts.new("A3")
-    if "Layout1" in doc.layouts:  # the default layout; a paper space layout must always remain
-        doc.layouts.delete("Layout1")
+
+def viewport_area() -> tuple[float, float, float, float]:
+    """Drawing area inside the frame, below the title band (paper mm, y up): l, b, r, t."""
+    return (
+        INNER[0] + 1.0,
+        SHEET_H - INNER[3] + 1.0,
+        INNER[2] - 1.0,
+        SHEET_H - TITLE_BAND_BOTTOM - 1.0,
+    )
+
+
+def fit_scale(width_mm: float, height_mm: float, factor: float = 0.9) -> int:
+    """Smallest standard scale (1:n) at which a model-space box fits the viewport.
+
+    ``factor`` keeps a margin. If even 1:200 is too small, the scale is rounded up to
+    the next multiple of 50.
+    """
+    l, b, r, t = viewport_area()
+    avail_w, avail_h = (r - l) * factor, (t - b) * factor
+    need = max(width_mm / avail_w, height_mm / avail_h)
+    for s in SCALES:
+        if s >= need:
+            return s
+    return int(-(-need // 50) * 50)
+
+
+def add_sheet(
+    doc,
+    name: str,
+    fields: dict[str, str],
+    view_center: tuple[float, float],
+    scale: int,
+    extent: tuple[float, float] | None = None,
+):
+    """Add an A3 layout with the title block filled from ``fields`` and one viewport.
+
+    ``fields`` maps title block tags (PROJ_REF, DRAWING_NAME, ...) to text; tags that are
+    missing are left blank. The viewport shows model space at 1:``scale`` centred on
+    ``view_center``. With ``extent`` = (width, height) in model units the viewport is
+    cut to just that box (so neighbouring plans in model space stay out of the sheet);
+    without it the viewport fills the whole drawing area.
+    """
+    add_sheet_blocks(doc)
+    layout = doc.layouts.new(name)
     layout.page_setup(
         size=(SHEET_W, SHEET_H),
         margins=(0, 0, 0, 0),
@@ -369,21 +413,31 @@ def build_template():
         device="DWG To PDF.pc3",
     )
     tb = layout.add_blockref("STIQ-TITLEBLOCK", (0, 0), dxfattribs={"layer": "S-TTLB-LINE"})
-    tb.add_auto_attribs({tag: default for _, tag, *_r, default in TITLE_CELLS})
+    tb.add_auto_attribs({tag: fields.get(tag, "") for _, tag, *_r in TITLE_CELLS})
     layout.add_blockref("STIQ-GENERAL-NOTES", (332.4, _y(263.7)), dxfattribs={"layer": "S-ANNO-NOTE"})
 
-    # one viewport over the drawing area (inside the frame, below the title band),
-    # 1:100, centred on the model origin; paper coordinates run up from the bottom
-    left, right = INNER[0] + 1.0, INNER[2] - 1.0
-    top, bottom = SHEET_H - TITLE_BAND_BOTTOM - 1.0, SHEET_H - INNER[3] + 1.0
+    l, b, r, t = viewport_area()
+    width, height = r - l, t - b
+    if extent is not None:
+        width, height = min(width, extent[0] / scale), min(height, extent[1] / scale)
     layout.add_viewport(
-        center=((left + right) / 2, (top + bottom) / 2),
-        size=(right - left, top - bottom),
-        view_center_point=(0, 0),
-        view_height=(top - bottom) * 100,
+        center=((l + r) / 2, (t + b) / 2),
+        size=(width, height),
+        view_center_point=view_center,
+        view_height=height * scale,
         status=1,
         dxfattribs={"layer": "S-VPORT"},
     )
+    return layout
+
+
+def build_template():
+    """Return the full template document (model space empty; layout 'A3' ready to use)."""
+    doc = ezdxf.new("R2018", setup=False)
+    defaults = {tag: default for _, tag, *_r, default in TITLE_CELLS}
+    add_sheet(doc, "A3", defaults, (0.0, 0.0), 100)
+    if "Layout1" in doc.layouts:  # the default layout; a paper space layout must always remain
+        doc.layouts.delete("Layout1")
     return doc
 
 

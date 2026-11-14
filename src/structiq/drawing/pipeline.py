@@ -3,7 +3,9 @@
 Steps: check the Core Brain is readable (and record its version) -> convert DWG to
 DXF into the local work cache -> extract grid, columns, RC walls, slabs, openings
 and stairs -> write ``S-LAYOUT <name> Rev NN.dxf`` and a DRAFT report into the
-project's ``02-Structural Drawing`` folder.
+project's ``02-Structural Drawing`` folder. Each plan is placed on its own A3 sheet
+(StructIQ template) with the title block filled from the project folder, revision and
+today's date, at a scale fitted to the plan.
 
 Existing revisions are never overwritten: each run writes the next revision.
 
@@ -15,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import datetime
 import logging
 import re
 import sys
@@ -64,12 +67,31 @@ def next_revision(out_dir: Path, stem: str) -> int:
     return max(found) + 1 if found else 0
 
 
+def sheet_fields(src: Path, revision: int, today: datetime.date) -> dict[str, str]:
+    """Title block values that can be known from the project; the rest stay blank."""
+    try:
+        match = re.match(r"PJR-\d{4}-\d{3}", paths.project_root(src).name)
+        project = match.group(0) if match else ""
+    except ValueError:
+        project = ""
+    return {
+        "PROJ_REF": project,
+        "REVISION": f"R{revision:02d}",
+        "DRAWN_BY": "STRUCTIQ",
+        "DRAWING_NO": "OF-STR-SD-___",  # numbering is the engineer's call
+        "STAGE": "DRAFT FOR REVIEW",
+        "CLIENT": "",
+        "ISSUE_DATE": today.strftime("%d-%b-%Y").upper(),  # e.g. 14-NOV-2026 fits the cell
+    }
+
+
 def run(
     source: str | Path,
     *,
     rc_layer_pattern: str | None = None,
     out_dir: str | Path | None = None,
     brain_dir: str | Path | None = None,
+    issue_date: datetime.date | None = None,
 ) -> PipelineResult:
     src = Path(source).resolve()
     if not src.is_file():
@@ -88,8 +110,12 @@ def run(
     rev = next_revision(target, src.stem)
     dxf_out = target / f"S-LAYOUT {src.stem} Rev {rev:02d}.dxf"
     report_out = dxf_out.with_name(f"{dxf_out.stem}-report.txt")
-    text = layout.format_layout_report(lay, source=src.name, brain_version=brain_version)
-    layout.write_layout(lay, dxf_out)
+    sheets = layout.plan_sheets(lay)
+    fields = sheet_fields(src, rev, issue_date or datetime.date.today())
+    text = layout.format_layout_report(
+        lay, source=src.name, brain_version=brain_version, sheets=sheets
+    )
+    layout.write_layout(lay, dxf_out, fields, sheets)
     report_out.write_text(text + "\n", encoding="utf-8")
     return PipelineResult(dxf_out, report_out, rev, brain_version, text)
 

@@ -82,6 +82,24 @@ def test_general_notes_and_blocks(doc):
     assert bubble.query("CIRCLE").first.dxf.radius == 2.5  # 5.0 mm bubble
 
 
+def test_fit_scale_picks_the_smallest_standard_scale_that_fits():
+    assert tpl.fit_scale(1000, 1000) == 20
+    assert tpl.fit_scale(20000, 20000) == 100  # 20 m needs 1:85 -> next standard is 1:100
+    assert tpl.fit_scale(300000, 100000) % 50 == 0 and tpl.fit_scale(300000, 100000) > 200
+
+
+def test_add_sheet_fills_fields_and_leaves_missing_ones_blank():
+    d = ezdxf.new("R2018")
+    layout = tpl.add_sheet(d, "S1", {"PROJ_REF": "PJR-2026-001"}, (5000.0, 6000.0), 50)
+    (tb,) = [i for i in layout.query("INSERT") if i.dxf.name == "STIQ-TITLEBLOCK"]
+    values = {a.dxf.tag: a.dxf.text for a in tb.attribs}
+    assert values["PROJ_REF"] == "PJR-2026-001" and values["CLIENT"] == ""
+    vp = sorted(layout.query("VIEWPORT"), key=lambda v: v.dxf.id)[-1]
+    centre = vp.dxf.view_center_point
+    assert (round(centre.x), round(centre.y)) == (5000, 6000)
+    assert round(vp.dxf.view_height) == 13150  # 263 mm x 50
+
+
 def test_write_template_never_overwrites(tmp_path):
     a = tpl.write_template(tmp_path)
     b = tpl.write_template(tmp_path)
