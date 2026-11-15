@@ -163,6 +163,16 @@ def test_confirm_renames_the_file_and_updates_the_register(project, tmp_path):
         receive.confirm(project, "RCV-999", "A-1", "x", "A")
 
 
+def test_confirm_can_record_what_a_combined_file_contains(project, tmp_path):
+    dwg = tmp_path / "set.dwg"
+    dwg.write_bytes(b"AC1032 fake")
+    receive.receive(project, [dwg], "Issue A", today=D1)
+    receive.confirm(project, "RCV-001", "SET", "Combined Drawing Set", "A", note="floor plans G-10, sections A-A to C-C")
+    (row,) = _entries(project)
+    assert row["file"].endswith("RCV-001_SET_Combined Drawing Set_RevA.dwg")
+    assert row["note"] == "floor plans G-10, sections A-A to C-C" and row["status"] == "Current"
+
+
 # ---------------------------------------------------------------- command line
 def _cfg(tmp_path, monkeypatch):
     brain = tmp_path / "brain"

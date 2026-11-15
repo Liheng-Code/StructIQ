@@ -81,7 +81,7 @@ def _confirm(ns: argparse.Namespace) -> int:
     layout, _ = load_layout()
     new = receive.confirm(
         ns.project, ns.rcv_no, ns.drawing_no, ns.title, ns.revision,
-        pattern=layout.received_pattern, columns=layout.received_columns,
+        pattern=layout.received_pattern, columns=layout.received_columns, note=ns.note,
     )
     print(new)
     return 0
@@ -148,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--drawing-no", required=True)
     p.add_argument("--title", required=True)
     p.add_argument("--revision", required=True)
+    p.add_argument("--note", help="what the file contains (kept in the register note)")
     p.set_defaults(fn=_confirm)
 
     p = sub.add_parser("register", help="list the received-drawing register")

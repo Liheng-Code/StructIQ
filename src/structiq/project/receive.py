@@ -199,6 +199,7 @@ def confirm(
     *,
     pattern: str = DEFAULT_PATTERN,
     columns: tuple[str, ...] = DEFAULT_COLUMNS,
+    note: str | None = None,
 ) -> Path:
     """Give a stored file its drawing number, title and revision: renames it in place and updates the register."""
     root = Path(project)
@@ -222,5 +223,7 @@ def confirm(
         title=title.strip(),
         revision=register.revision_token(revision),
     )
+    if note:
+        entry["note"] = note.strip()
     _save(root, data, columns)
     return new
