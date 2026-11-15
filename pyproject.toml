@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "mypy", "ruff", "types-PyYAML"]
+dev = ["pytest", "mypy", "ruff", "types-PyYAML", "types-openpyxl"]
 mcp = ["mcp"]  # optional read-only MCP server (structiq.tools.mcp)
 
 [tool.hatch.build.targets.wheel]

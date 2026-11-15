@@ -16,7 +16,7 @@ Everything it produces is a **DRAFT for engineer review**, never approved.
    user and do not work from memory.
 2. Confirm the drawing is inside a `PJR-YYYY-NNN_...` project folder on Drive
    (`G:\My Drive\01-Projects\...`), so the output lands in that project's
-   `02-Structural Drawing` folder. Otherwise pass `--out-dir`.
+   `structiq_draft` folder (see skill `project-setup`; `02-Structural Drawing` in old projects). Otherwise pass `--out-dir`.
 
 ## Run it
 

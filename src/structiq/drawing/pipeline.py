@@ -3,7 +3,7 @@
 Steps: check the Core Brain is readable (and record its version) -> convert DWG to
 DXF into the local work cache -> extract grid, columns, RC walls, slabs, openings
 and stairs -> write ``S-LAYOUT <name> Rev NN.dxf`` and a DRAFT report into the
-project's ``02-Structural Drawing`` folder. Each plan is placed on its own A3 sheet
+project's ``structiq_draft`` folder (``02-Structural Drawing`` in old projects). Each plan is placed on its own A3 sheet
 (StructIQ template) with the title block filled from the project folder, revision and
 today's date, at a scale fitted to the plan.
 
@@ -140,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m structiq.drawing.pipeline")
     parser.add_argument("drawing", help="architect drawing (.dwg or .dxf)")
     parser.add_argument("--rc-layers", help="regex for layer names that hold RC walls")
-    parser.add_argument("--out-dir", help="output folder (default: <project>\\02-Structural Drawing)")
+    parser.add_argument("--out-dir", help="output folder (default: the project's structiq_draft folder)")
     parser.add_argument(
         "--plan-names",
         help='JSON file naming the floors, e.g. {"3": "1F-2F", "4": "3F-5F"} (plan number: label)',
