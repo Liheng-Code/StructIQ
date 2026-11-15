@@ -12,3 +12,9 @@ knowledge:
   construction_documents: 'G:\My Drive\02-Engineering Knowledge\06-Construction Documents'
 
 projects: 'G:\My Drive\01-Projects'
+
+# Optional: executables, only needed when they are not in the standard install folders.
+# Keys: autocad_console, autocad, oda_file_converter, etabs, safe, libreoffice, excel
+tools:
+  # autocad_console: 'C:\Program Files\Autodesk\AutoCAD 2023\accoreconsole.exe'
+  # libreoffice: 'C:\Program Files\LibreOffice\program\soffice.exe'

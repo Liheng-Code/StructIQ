@@ -16,13 +16,35 @@ dependencies = [
     "pyyaml",
     "ezdxf",
     "pymupdf",
+    "python-docx",  # calculation reports and specifications (qaqc)
+    "openpyxl",  # calculation workbooks (qaqc)
+    "pillow",
+    "matplotlib",  # previews of templates and layouts, report figures
+    "shapely",  # geometry for PT layout checks
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "matplotlib"]  # matplotlib only renders previews of templates and layouts
+dev = ["pytest", "mypy", "ruff", "types-PyYAML"]
+mcp = ["mcp"]  # optional read-only MCP server (structiq.tools.mcp)
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/structiq"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "requires_soffice: needs LibreOffice (PDF export, XLSX recalculation); skipped when it is not found",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["structiq.core.*"]
+strict = true
