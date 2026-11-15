@@ -93,6 +93,7 @@ BROWN = (128, 64, 0)  # beams below / hidden, #804000
 BLUE = (0, 128, 255)  # stair and lift openings, #0080ff
 OLIVE = (128, 128, 0)  # level marks, #808000
 LIME = (0, 255, 0)  # opening cross lines, #00ff00
+MAGENTA = (255, 0, 255)  # bracing (company standard extra layer)
 
 # Linetypes: patterns in paper mm (dash +, gap -). Keep LTSCALE = 1 and PSLTSCALE = 1.
 LINETYPES = {
@@ -154,7 +155,7 @@ def text_height_for(scales: dict[int, int]):
 
 def _aci_for(rgb) -> int:
     return {
-        BLACK: 7, MAROON: 1, GREY: 8, TEAL: 4, DARK_RED: 1, BROWN: 30, BLUE: 5, OLIVE: 62, LIME: 3
+        BLACK: 7, MAROON: 1, GREY: 8, TEAL: 4, DARK_RED: 1, BROWN: 30, BLUE: 5, OLIVE: 62, LIME: 3, MAGENTA: 6
     }[rgb]
 
 

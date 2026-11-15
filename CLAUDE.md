@@ -44,6 +44,15 @@ the approved rules from the Core Brain (`beam-rules.yaml`), `arrange.py` propose
 `draw.py` draws them, `compare.py` checks them against the sample. Sizes are preliminary and are
 never a design check; PT bands are only marked.
 
+Merged from the SDSA project (see `docs/merge/`): `structiq.core` (units, status, code registry, schemas, design-basis
+validator), `structiq.calc` (EC2 anchorage and PT screening), `structiq.qaqc` (docgen, calculation workbooks, document register,
+package QA), `drawing/layers.py`, `validate.py` and `restandardise.py` (layer standard). Check status words are PASS, FAIL,
+NOT EVALUATED, BLOCKED, WARNING, ENGINEER REVIEW REQUIRED: NOT EVALUATED is never PASS and nothing here produces APPROVED. The
+code registry holds references only; every value is null and UNVERIFIED until an engineer verifies it. ETABS/SAFE importers are in `structiq.tools.etabs` (unverified on real SAFE exports) and a read-only MCP server is in
+`structiq.tools.mcp` (`docs/mcp.md`). Skills for PT floors, RC,
+steel, documentation, drawing, specification, calculation reports and QA are in `.claude/skills`; those that need unported tools
+say so in their banner.
+
 ## Where things live
 
 - Code: this repository (`src/structiq`, `tests`, `.claude`, `apps`).

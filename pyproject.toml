@@ -56,3 +56,7 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["structiq.core.design_basis"]  # ported script, not yet typed
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["structiq.tools.etabs.*", "structiq.tools.mcp.server"]  # ported, not yet typed (mcp has two API generations)
+ignore_errors = true

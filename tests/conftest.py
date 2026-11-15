@@ -1,17 +1,16 @@
-import shutil
+import sys
+from pathlib import Path
 
 import pytest
 
-from structiq.core.config import tool_path
+from structiq.core.config import find_soffice
 
-
-def _soffice():
-    return tool_path("libreoffice") or shutil.which("soffice") or shutil.which("libreoffice")
+sys.path.insert(0, str(Path(__file__).parent / "fixtures"))  # shared made-up fixtures
 
 
 def pytest_collection_modifyitems(config, items):
     """Skip tests marked requires_soffice when LibreOffice cannot be found."""
-    if _soffice():
+    if find_soffice():
         return
     skip = pytest.mark.skip(reason="LibreOffice not found (set tools.libreoffice in config/paths.yaml)")
     for item in items:

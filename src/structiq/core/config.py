@@ -39,3 +39,11 @@ def tool_path(name: str, path: str | os.PathLike[str] | None = None) -> Path | N
         return None
     p = Path(str(value))
     return p if p.exists() else None
+
+
+def find_soffice() -> str | None:
+    """LibreOffice executable: ``tools.libreoffice`` from paths.yaml, else soffice/libreoffice on PATH."""
+    import shutil
+
+    configured = tool_path("libreoffice")
+    return str(configured) if configured else shutil.which("soffice") or shutil.which("libreoffice")
