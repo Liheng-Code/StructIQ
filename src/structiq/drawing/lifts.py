@@ -22,7 +22,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from ezdxf import bbox
 from ezdxf.math import Vec3
 
 from structiq.drawing import grids, slabs, template

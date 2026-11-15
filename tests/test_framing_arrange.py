@@ -1,7 +1,7 @@
 import ezdxf
 import pytest
 
-from structiq.drawing import columns, grids, layout, lifts, openings, slabs, stairs, walls
+from structiq.drawing import layout
 from structiq.framing import arrange, rules
 
 RULES = {
