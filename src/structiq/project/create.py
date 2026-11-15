@@ -17,6 +17,7 @@ from structiq.project.layout import Layout, check_length
 STATUSES = ["Not started", "In progress", "Waiting for client", "Done"]
 TRACKER_NAME = "Project Tracker.xlsx"
 REGISTER_NAME = "Drawing Register.csv"
+RECEIVED_REGISTER_NAME = "Received Register.csv"
 
 
 @dataclass
@@ -81,6 +82,7 @@ def new_project(
         root / mgmt / record.RECORD_NAME,
         root / mgmt / REGISTER_NAME,
         root / mgmt / TRACKER_NAME,
+        root / mgmt / RECEIVED_REGISTER_NAME,
     ]
     if dry_run:
         return result
@@ -101,4 +103,5 @@ def new_project(
     record.write_record(result.files[0], data)
     _write_register(result.files[1], layout.register_columns)
     _write_tracker(result.files[2], layout.workflow_steps, today)
+    _write_register(result.files[3], layout.received_columns)
     return result
