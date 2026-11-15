@@ -53,6 +53,11 @@ code registry holds references only; every value is null and UNVERIFIED until an
 steel, documentation, drawing, specification, calculation reports and QA are in `.claude/skills`; those that need unported tools
 say so in their banner.
 
+Project folders (`src/structiq/project/`): `python -m structiq.project new "Name"` creates the next `PJR-YYYY-NNN` folder from the layout
+in the Core Brain (`04-Global Workflows/project-folder-layout.yaml`); `receive` stores architect drawings in a dated set; `adopt`
+records the roles of an old project. Tools find folders by role (`structiq.drawing.paths.project_folder`), with the old folder names as a
+fallback for projects that have no `project.yaml`. Skill: `.claude/skills/project-setup`.
+
 ## Where things live
 
 - Code: this repository (`src/structiq`, `tests`, `.claude`, `apps`).
@@ -75,7 +80,7 @@ say so in their banner.
 - Output locations (`structiq.drawing.paths`): the large converted DXF is a local
   cache in `D:\Dev\_work` (override with `STRUCTIQ_WORK_DIR`); deliverables
   (structural-layer DXF/DWG, review reports) go to
-  `<project>\02-Structural Drawing` on Google Drive, named `... Rev NN`.
+  the project's `structiq_draft` folder on Google Drive (`02-Structural Drawing` in old projects), named `... Rev NN`.
 - ETABS, SAFE, AutoCAD and Revit adapters run only on a Windows desktop with
   the software installed; keep them in `src/structiq/tools` behind interfaces
   so the calculation core stays testable without them.
