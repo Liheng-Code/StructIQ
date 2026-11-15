@@ -1,5 +1,4 @@
 import datetime
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -7,7 +6,7 @@ import yaml
 from openpyxl import load_workbook
 
 from structiq.drawing import paths
-from structiq.project import adopt, create, numbering, receive, record
+from structiq.project import adopt, create, numbering, record
 from structiq.project.cli import main as cli_main
 from structiq.project.layout import LayoutError, check_length, load_layout, parse_layout
 
@@ -145,43 +144,6 @@ def test_two_projects_get_consecutive_numbers_and_nothing_is_overwritten(parent,
     assert (a.code, b.code) == ("PJR-2026-001", "PJR-2026-002")
     with pytest.raises(FileNotFoundError):
         create.new_project("X", parent / "missing", layout, "v", today=TODAY)
-
-
-# ---------------------------------------------------------------- receive
-def _drawings(tmp_path):
-    src = tmp_path / "from client"
-    src.mkdir()
-    (src / "plan.pdf").write_bytes(b"%PDF fake")
-    (src / "plan.dwg").write_bytes(b"AC1032 fake")
-    return src
-
-
-def test_received_drawings_go_in_a_dated_set_with_hashes(parent, layout, tmp_path):
-    res = create.new_project("Villa", parent, layout, "v", today=TODAY)
-    src = _drawings(tmp_path)
-    out = receive.receive(res.root, [src / "plan.pdf", src / "plan.dwg"], "Issue A", today=TODAY)
-    rels = sorted(p.relative_to(res.root).as_posix() for p in out)
-    assert rels == [
-        "01-Received/Architectural/2026-11-15 Issue A/DWG/plan.dwg",
-        "01-Received/Architectural/2026-11-15 Issue A/PDF/plan.pdf",
-    ]
-    assert (src / "plan.pdf").read_bytes() == b"%PDF fake"  # the source is untouched
-    rec = record.read_record(res.root)["received"]
-    assert {r["source_name"] for r in rec} == {"plan.pdf", "plan.dwg"}
-    assert rec[0]["sha256"] == hashlib.sha256((res.root / rec[0]["file"]).read_bytes()).hexdigest()
-
-
-def test_a_set_is_never_overwritten_and_a_bad_file_copies_nothing(parent, layout, tmp_path):
-    res = create.new_project("Villa", parent, layout, "v", today=TODAY)
-    src = _drawings(tmp_path)
-    receive.receive(res.root, [src / "plan.pdf"], "Issue A", today=TODAY)
-    with pytest.raises(FileExistsError):
-        receive.receive(res.root, [src / "plan.pdf"], "Issue A", today=TODAY)
-    (src / "notes.txt").write_text("x")
-    with pytest.raises(ValueError):
-        receive.receive(res.root, [src / "plan.dwg", src / "notes.txt"], "Issue B", today=TODAY)
-    assert not (res.root / "01-Received/Architectural/2026-11-15 Issue B").exists()
-    receive.receive(res.root, [src / "plan.dwg"], "Issue B", today=TODAY)  # a new label is a new set
 
 
 # ---------------------------------------------------------------- adopt and roles

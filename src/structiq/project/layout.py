@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from structiq.project.register import DEFAULT_COLUMNS, DEFAULT_PATTERN
+
 LAYOUT_FILE = Path("04-Global Workflows") / "project-folder-layout.yaml"
 ILLEGAL = set('<>:"/|?*') | {chr(92)}  # chr(92) is the backslash
 REQUIRED_ROLES = (
@@ -47,6 +49,8 @@ class Layout:
     register_columns: tuple[str, ...]
     workflow_steps: tuple[str, ...]
     folders: tuple[Node, ...] = field(default_factory=tuple)
+    received_columns: tuple[str, ...] = DEFAULT_COLUMNS
+    received_pattern: str = DEFAULT_PATTERN
 
     def paths(self) -> list[str]:
         """Every folder as a posix path relative to the project root, parents before children."""
@@ -119,6 +123,8 @@ def parse_layout(data: Any) -> Layout:
         tuple(str(c) for c in data["register_columns"]),
         tuple(str(s) for s in data["workflow_steps"]),
         folders,
+        tuple(str(c) for c in data.get("received_register_columns") or DEFAULT_COLUMNS),
+        str(data.get("received_file_pattern") or DEFAULT_PATTERN),
     )
     roles: list[str] = []
 

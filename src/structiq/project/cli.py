@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from structiq.core.config import load_config
 from structiq.project import adopt as adopt_mod
 from structiq.project import create, receive
 from structiq.project.layout import load_layout
+from structiq.project.receive import Item
 from structiq.project.record import read_record
 
 
@@ -22,6 +24,31 @@ def _parent(arg: str | None, folder: str) -> Path:
     if cfg.get("projects"):
         return Path(str(cfg["projects"])) / folder
     raise SystemExit("No parent folder: pass --parent or set 'projects' (or 'freelance') in config/paths.yaml")
+
+
+def _items(files: list[str], meta: str | None, revision: str | None) -> list[Item]:
+    """Files plus optional drawing number / title / revision from a CSV (columns: file, drawing_no, title, revision)."""
+    info: dict[str, dict[str, str]] = {}
+    if meta:
+        with open(meta, newline="", encoding="utf-8-sig") as fh:
+            info = {Path(r["file"]).name.lower(): r for r in csv.DictReader(fh)}
+    out = []
+    for f in files:
+        r = info.get(Path(f).name.lower(), {})
+        out.append(Item(Path(f), r.get("drawing_no") or None, r.get("title") or None, r.get("revision") or revision))
+    return out
+
+
+def _receive_args(ns: argparse.Namespace, project: Path) -> list[Path]:
+    layout, _ = load_layout()
+    return receive.receive(
+        project,
+        _items(ns.received if ns.cmd == "new" else ns.files, ns.meta, ns.revision),
+        ns.label,
+        pattern=layout.received_pattern,
+        columns=layout.received_columns,
+        split=not ns.no_split,
+    )
 
 
 def _new(ns: argparse.Namespace) -> int:
@@ -37,7 +64,7 @@ def _new(ns: argparse.Namespace) -> int:
     for w in result.warnings:
         print(f"! {w}")
     if ns.received and not result.dry_run:
-        for dest in receive.receive(result.root, ns.received, ns.label):
+        for dest in _receive_args(ns, result.root):
             print(f"  received: {dest.relative_to(result.root).as_posix()}")
     elif ns.received:
         print("  (drawings would be copied into a dated set under the architect folder)")
@@ -45,8 +72,27 @@ def _new(ns: argparse.Namespace) -> int:
 
 
 def _receive(ns: argparse.Namespace) -> int:
-    for dest in receive.receive(ns.project, ns.files, ns.label):
+    for dest in _receive_args(ns, Path(ns.project)):
         print(dest)
+    return 0
+
+
+def _confirm(ns: argparse.Namespace) -> int:
+    layout, _ = load_layout()
+    new = receive.confirm(
+        ns.project, ns.rcv_no, ns.drawing_no, ns.title, ns.revision,
+        pattern=layout.received_pattern, columns=layout.received_columns, note=ns.note,
+    )
+    print(new)
+    return 0
+
+
+def _register(ns: argparse.Namespace) -> int:
+    rows = read_record(Path(ns.project)).get("received") or []
+    for e in rows:
+        print(f"{e['rcv_no']:11} {e['status']:12} {e.get('drawing_no') or '-':10} Rev {e.get('revision') or '-':4} {e['file']}")
+    if not rows:
+        print("nothing received yet")
     return 0
 
 
@@ -81,6 +127,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--year", type=int)
     p.add_argument("--received", nargs="*", default=[], help="architect drawings to store (.pdf .dwg .dxf)")
     p.add_argument("--label", default="Issue A", help="label of the received set (default: Issue A)")
+    p.add_argument("--meta", help="CSV with columns file, drawing_no, title, revision for the received files")
+    p.add_argument("--revision", help="revision for received files that have none in --meta")
+    p.add_argument("--no-split", action="store_true", help="do not split combined PDFs into single sheets")
     p.add_argument("--dry-run", action="store_true", help="show what would be created; change nothing")
     p.set_defaults(fn=_new)
 
@@ -88,7 +137,23 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("project")
     p.add_argument("files", nargs="+")
     p.add_argument("--label", default="Issue A")
+    p.add_argument("--meta", help="CSV with columns file, drawing_no, title, revision")
+    p.add_argument("--revision", help="revision for files that have none in --meta")
+    p.add_argument("--no-split", action="store_true")
     p.set_defaults(fn=_receive)
+
+    p = sub.add_parser("confirm", help="name a stored file: drawing number, title, revision (renames it, updates the register)")
+    p.add_argument("project")
+    p.add_argument("rcv_no", help="e.g. RCV-007 or RCV-007.03")
+    p.add_argument("--drawing-no", required=True)
+    p.add_argument("--title", required=True)
+    p.add_argument("--revision", required=True)
+    p.add_argument("--note", help="what the file contains (kept in the register note)")
+    p.set_defaults(fn=_confirm)
+
+    p = sub.add_parser("register", help="list the received-drawing register")
+    p.add_argument("project")
+    p.set_defaults(fn=_register)
 
     p = sub.add_parser("adopt", help="record the folder roles of an old project (moves nothing)")
     p.add_argument("project")
@@ -103,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     ns = ap.parse_args(sys.argv[1:] if argv is None else argv)
     try:
         return int(ns.fn(ns))
-    except (FileExistsError, FileNotFoundError, ValueError) as exc:
+    except (FileExistsError, FileNotFoundError, ValueError, KeyError) as exc:
         print(f"STOPPED: {exc}", file=sys.stderr)
         return 1
 
