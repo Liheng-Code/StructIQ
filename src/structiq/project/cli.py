@@ -9,7 +9,7 @@ from pathlib import Path
 
 from structiq.core.config import load_config
 from structiq.project import adopt as adopt_mod
-from structiq.project import create, receive
+from structiq.project import create, derive, receive
 from structiq.project.layout import load_layout
 from structiq.project.receive import Item
 from structiq.project.record import read_record
@@ -108,6 +108,32 @@ def _adopt(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _views(ns: argparse.Namespace) -> int:
+    from structiq.drawing import split
+
+    views, _ = derive.scan(ns.project, ns.rcv_no, within=ns.within, min_entities=ns.min_entities)
+    print(split.format_views(views))
+    if ns.preview:
+        print(f"preview: {split.preview(views, ns.preview)}")
+    return 0
+
+
+def _split(ns: argparse.Namespace) -> int:
+    layout, _ = load_layout()
+    picks = []
+    for spec in ns.view:
+        num, sep, title = spec.partition("=")
+        if not sep or not num.strip().isdigit() or not title.strip():
+            raise ValueError(f"--view expects NUMBER=Title, got {spec!r}")
+        picks.append((int(num), title.strip()))
+    for dest in derive.split_received(
+        ns.project, ns.rcv_no, picks, within=ns.within, margin=ns.margin, dwg=ns.dwg, min_entities=ns.min_entities,
+        pattern=layout.received_pattern, columns=layout.received_columns,
+    ):
+        print(dest)
+    return 0
+
+
 def _where(ns: argparse.Namespace) -> int:
     root = Path(ns.project)
     roles = read_record(root)["roles"]
@@ -150,6 +176,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--revision", required=True)
     p.add_argument("--note", help="what the file contains (kept in the register note)")
     p.set_defaults(fn=_confirm)
+
+    p = sub.add_parser("views", help="list the separate drawings found inside a stored combined DWG/DXF")
+    p.add_argument("project")
+    p.add_argument("rcv_no")
+    p.add_argument("--within", type=int, help="look inside this view number only (a sheet that holds several drawings)")
+    p.add_argument("--min-entities", type=int, default=40)
+    p.add_argument("--preview", help="write a PNG picture of the detected drawings")
+    p.set_defaults(fn=_views)
+
+    p = sub.add_parser("split", help="cut chosen drawings out of a stored combined DWG/DXF, one file each")
+    p.add_argument("project")
+    p.add_argument("rcv_no")
+    p.add_argument("--view", action="append", required=True, metavar="N=Title", help='e.g. --view 9="Ground Floor Plan" (repeat)')
+    p.add_argument("--within", type=int)
+    p.add_argument("--margin", type=float, default=0.0, help="grow each window by this much (drawing units)")
+    p.add_argument("--min-entities", type=int, default=40)
+    p.add_argument("--dwg", action="store_true", help="save as DWG through AutoCAD (purged); default is DXF")
+    p.set_defaults(fn=_split)
 
     p = sub.add_parser("register", help="list the received-drawing register")
     p.add_argument("project")

@@ -58,6 +58,10 @@ in the Core Brain (`04-Global Workflows/project-folder-layout.yaml`); `receive` 
 records the roles of an old project. Tools find folders by role (`structiq.drawing.paths.project_folder`), with the old folder names as a
 fallback for projects that have no `project.yaml`. Skill: `.claude/skills/project-setup`.
 
+Splitting a combined architect DWG/DXF into one file per drawing: `structiq.drawing.split` (find views, cut a window, purge) and
+`python -m structiq.project views|split` (registers each piece as `RCV-NNN.NN`, status Derived); `structiq.tools.autocad` saves a DWG
+through AutoCAD when installed. Skill: `.claude/skills/drawing-split`.
+
 ## Where things live
 
 - Code: this repository (`src/structiq`, `tests`, `.claude`, `apps`).

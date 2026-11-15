@@ -28,9 +28,10 @@ DEFAULT_COLUMNS = (
     "sha256",
     "status",
     "note",
+    "derived_from",
 )
 DEFAULT_PATTERN = "{rcv}_{drawing_no}_{title}_Rev{revision}"
-CURRENT, SUPERSEDED, TO_CONFIRM = "Current", "Superseded", "To confirm"
+CURRENT, SUPERSEDED, TO_CONFIRM, DERIVED = "Current", "Superseded", "To confirm", "Derived"
 MAX_PART = 40  # characters of one name part, to stay under the Windows path limit
 MAX_PATH = 240
 
@@ -84,13 +85,18 @@ def file_name(
 
 
 def refresh_status(received: list[dict[str, Any]]) -> None:
-    """Newest received revision of each drawing number is Current, older ones Superseded; unnamed ones To confirm."""
+    """Newest received revision of each drawing number is Current, older ones Superseded; unnamed ones To confirm;
+    pieces split from a received file are Derived."""
     latest: dict[tuple[str, str], int] = {}
     for i, e in enumerate(received):
+        if e.get("derived_from"):
+            continue  # a piece cut out of a received file is a working copy, not a new receipt
         if e.get("drawing_no") and e.get("revision"):
             latest[(str(e.get("discipline", "ARC")), str(e["drawing_no"]).upper())] = i
     for i, e in enumerate(received):
-        if not (e.get("drawing_no") and e.get("revision")):
+        if e.get("derived_from"):
+            e["status"] = DERIVED
+        elif not (e.get("drawing_no") and e.get("revision")):
             e["status"] = TO_CONFIRM
         elif latest[(str(e.get("discipline", "ARC")), str(e["drawing_no"]).upper())] == i:
             e["status"] = CURRENT
