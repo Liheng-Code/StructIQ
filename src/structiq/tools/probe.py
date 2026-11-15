@@ -13,6 +13,7 @@ import importlib.util
 import json
 import platform
 import shutil
+from typing import Any
 
 from structiq.core.config import load_config
 
@@ -36,7 +37,7 @@ PATH_TOOLS = ["accoreconsole", "ODAFileConverter", "soffice", "libreoffice", "pd
 LIBS = ["ezdxf", "matplotlib", "openpyxl", "docx", "yaml", "numpy", "PIL", "shapely", "fitz", "mcp"]
 
 
-def probe(config: dict | None = None) -> dict:
+def probe(config: dict[str, Any] | None = None) -> dict[str, Any]:
     cfg = load_config() if config is None else config
     configured = cfg.get("tools") or {}
     found = {}

@@ -41,6 +41,10 @@ line-length = 120
 target-version = "py311"
 src = ["src", "tests"]
 
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E402", "E702", "E731", "UP031", "UP042", "E741", "E501"]  # style of the ported SDSA code; tidy later
+
 [tool.mypy]
 python_version = "3.11"
 plugins = ["pydantic.mypy"]
@@ -48,3 +52,7 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["structiq.core.*"]
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["structiq.core.design_basis"]  # ported script, not yet typed
+ignore_errors = true

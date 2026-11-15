@@ -32,7 +32,8 @@ from structiq.drawing import (
     template,
     walls,
 )
-from structiq.framing import arrange, draw as beam_draw
+from structiq.framing import arrange
+from structiq.framing import draw as beam_draw
 
 GRID_TRIM = 2500.0  # mm: gridlines stop this far beyond the outermost crossing gridline
 EXTENT_MARGIN = 1500.0  # mm around a plan: room for the grid bubbles beyond the line ends

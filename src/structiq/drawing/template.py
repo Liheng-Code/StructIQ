@@ -30,7 +30,6 @@ from pathlib import Path
 
 import ezdxf
 from ezdxf.enums import TextEntityAlignment
-from ezdxf.colors import rgb2int
 
 SHEET_W, SHEET_H = 420.0, 297.0  # A3 landscape, mm
 TEXT_HEIGHT = 1.5  # mm at A3 (Arial cap height, = 6 pt)

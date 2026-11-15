@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -21,11 +22,11 @@ def config_path() -> Path:
     return Path(__file__).resolve().parents[3] / "config" / "paths.yaml"
 
 
-def load_config(path: str | os.PathLike[str] | None = None) -> dict:
+def load_config(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
     p = Path(path) if path else config_path()
     if not p.is_file():
         return {}
-    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    data: Any = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
         raise ValueError(f"{p}: expected a mapping at the top level")
     return data

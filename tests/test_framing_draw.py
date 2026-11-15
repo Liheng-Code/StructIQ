@@ -3,7 +3,6 @@ import yaml
 
 from structiq.drawing import layout, pipeline
 from structiq.framing import arrange, rules
-
 from test_framing_arrange import RULES, _doc
 
 
